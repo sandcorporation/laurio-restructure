@@ -2,7 +2,7 @@
 
     python3 scripts/ci/paths.py <기준 커밋> [끝 커밋=HEAD]   →  TESTS=0|1  BACK=0|1  FRONT=0|1  (changed.sh 가 부른다)
 
-`changed.sh`(어느 잡), `verified_tree.py`(계획과 같은 건너뜀인가), `e2e_plan.py`·`pytest_plan.py`(어느 시험) 가
+`changed.sh`(어느 잡), `e2e_plan.py`·`pytest_plan.py`(어느 시험) 가
 같은 경로를 따로 가르던 것을 이 표 하나로 모았다. 앱 단위의 판단은 여기 없다 — `backend/app_deps.toml` 이 들고 있다.
 
 표는 위에서부터 처음 맞는 줄이다(`.md` 가 맨 위라 `backend/README.md` 도 문서다).

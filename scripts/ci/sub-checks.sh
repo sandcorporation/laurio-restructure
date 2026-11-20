@@ -25,13 +25,10 @@ rm -rf test-results && mkdir -p test-results
 
 echo "CI 이미지 굽는 중($image)…"
 # 층 캐시(GitHub Actions, #932): CODEMIT_BK_CACHE 가 있으면 복원한 층을 읽고(buildx 컨테이너 빌더라 --load),
-# main push 실행만(CODEMIT_BK_CACHE_SAVE=1) CODEMIT_BK_CACHE_NEW 로 내보낸다.
+# 저장은 release.yml 의 cache 잡이 한다(#1090).
 build_cache=()
 if [ -n "${CODEMIT_BK_CACHE:-}" ]; then
   build_cache=(--load --cache-from "type=local,src=$CODEMIT_BK_CACHE/ci")
-  if [ -n "${CODEMIT_BK_CACHE_SAVE:-}" ]; then
-    build_cache+=(--cache-to "type=local,dest=$CODEMIT_BK_CACHE_NEW/ci,mode=max")
-  fi
 fi
 docker build -q -f docker/ci.Dockerfile ${build_cache[@]+"${build_cache[@]}"} -t "$image" . >/dev/null || { echo "CI 이미지를 굽지 못했다"; exit 1; }
 

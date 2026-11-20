@@ -3,19 +3,20 @@
 #
 #   plan    문서(.md·docs/)만 바뀌었나(`changed.sh`) — 그러면 ADR 상태 검사만
 #   checks  `sub-checks.sh` — Django check·check --deploy·마이그레이션 호환(#1091)·pytest·생성물·문서 검사·단위 시험·타입 검사
-#           pytest(#1088)는 PR 이면 바뀐 앱과 그 앱에 기대는 앱의 시험만, 병합 대기열·main 은 전부를 조각 나란히로(`pytest_plan.py`)
-#   guard   (PR 에서는 건너뜀, release 에서만 — #1015) 세 앱 prod 이미지(amd64)를 여기서 굽고 `deploy-guard.sh` — 설정 없이는 죽고, 완전한 설정으로는 뜬다
-#   e2e     (#1089) PR 은 바뀐 앱의 시험만, 병합 대기열은 전부를 조각 나란히로(`e2e_plan.py`). main push(release)는 건너뜀 — 대기열이 같은 트리를 돌았다
+#           pytest(#1088)는 PR 이면 바뀐 앱과 그 앱에 기대는 앱의 시험만, 병합 대기열은 전부를 조각 나란히로(`pytest_plan.py`)
+#   guard   (PR 에서는 건너뜀, 병합 대기열에서만 — #1015·#1090) 세 앱 prod 이미지(amd64)를 여기서 굽고 `deploy-guard.sh` — 설정 없이는 죽고, 완전한 설정으로는 뜬다
+#   e2e     (#1089) PR 은 바뀐 앱의 시험만, 병합 대기열은 전부를 조각 나란히로(`e2e_plan.py`)
 #   celery  `celery-broker.sh` — 실제 Redis 브로커로 beat → worker
 #   agent-grader  `agent-grader-check.sh` — 에이전트 채점 실행기 이미지를 arm64 실행기에서 굽고, 운영과 같은 격리 설정으로
 #           가짜 벤더(`llm-proxy` 자리)에 Claude Code·Codex 를 한 번씩 돌린다(#999). 진짜 벤더·키 없음
 #   결과    위가 모두 초록(또는 문서만이라 건너뜀)이면 초록 — 브랜치 보호의 필수 검사로 걸 이름 하나
 #
-# main 에서는 release.yml(#938, ADR-0077)이 이 워크플로를 workflow_call 로 부른다 — 같은 검사가 초록이어야 image.yml 이
-# 이미지를 굽고 production 이 승격된다. 이 파일만 따로 main push 로 도는 일은 없다.
+# 배포 가능 판정은 병합 대기열의 이 검사 한 번이다(#1090) — main 은 대기열로만 움직이고, release.yml 은 검사하지 않고
+# 이미지·승격만 한다. 그래서 이 워크플로는 main push 로도, workflow_call 로도 돌지 않는다.
 #
 # 캐시(#932): 이미지 층은 buildx `type=local` 캐시를 actions/cache 로 옮긴다(키 = Dockerfile·lockfile 해시).
-# **저장은 main 실행(release.yml 의 check)만**, PR 은 복원만(`actions/cache/restore`) — PR 이 만든 캐시는 다른 PR 이 못 쓴다.
+# 여기서는 복원만(`actions/cache/restore`) 한다 — PR·대기열 ref 에서 저장한 캐시는 다른 PR 이 못 읽는다.
+# 저장은 release.yml 의 cache 잡이 main 에서 한다(키가 없을 때만 굽는다).
 # 별도 권한(`actions: write`)이 필요 없다 — GHA 캐시 백엔드(type=gha) 대신 actions/cache 를 쓰는 까닭이다.
 #
 # 여기서 굽는 이미지는 amd64 시험용이고 레지스트리에 올리지 않는다(ctx·e2e 태그 없음). 배포할 arm64 이미지는
@@ -29,9 +30,6 @@ on:
   pull_request:
   # 병합 대기열(#1084) — 대기열이 만든 머지 커밋을 같은 검사로 판정한다. 필수 검사 「결과」가 여기서도 나온다.
   merge_group:
-  # main 에서는 release.yml 이 이 워크플로를 workflow_call 로 부른다(#938) — 통과해야 이미지·승격으로 간다.
-  # 그때 github.event_name·github.ref 는 부른 쪽의 것(push, refs/heads/main)이라 캐시 저장(CODEMIT_BK_CACHE_SAVE)이 그대로 돈다.
-  workflow_call:
 
 permissions:
   contents: read
@@ -42,12 +40,10 @@ concurrency:
 
 env:
   CODEMIT_CI_RUN_ID: gha-${{ github.run_id }}-${{ github.run_attempt }}
-  # 이미지 층 캐시(#932) — 복원은 어디서나, 저장은 main push 실행에서만(PR 이 만든 캐시는 다른 PR 이 못 쓴다)
+  # 이미지 층 캐시(#932) — 복원만 한다(저장은 release.yml 의 cache 잡)
   # compose(bake)가 로컬 캐시 폴더 읽기·쓰기를 허락받으라고 멈춘다 — 이 실행기 안의 /tmp 폴더라 끈다
   BUILDX_BAKE_ENTITLEMENTS_FS: "0"
   CODEMIT_BK_CACHE: /tmp/bk
-  CODEMIT_BK_CACHE_NEW: /tmp/bk-new
-  CODEMIT_BK_CACHE_SAVE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && '1' || '' }}
 
 jobs:
   plan:
@@ -62,11 +58,9 @@ jobs:
       # pytest 선택 실행(#1088, pytest_plan.py) — pytest_files 는 PR 이 고른 시험 파일(전부면 빈 값), pytest_all 은 전부를 도는가
       pytest_files: ${{ steps.plan.outputs.pytest_files }}
       pytest_all: ${{ steps.plan.outputs.pytest_all }}
-      # PR 에서 뺄 잡을 고르는 한 곳(#1015) — PR 이 아닐 때만 '1'. release.yml 이 workflow_call 로 부르면 github.event_name 은
-      # 부른 쪽 이벤트(push)다(GitHub 문서 「Reusing workflows」: the github context is the same as the caller) — 그래서 배포 전에는 돈다.
+      # PR 에서 뺄 잡을 고르는 한 곳(#1015) — PR 이 아닐 때만 '1', 곧 병합 대기열에서 돈다(#1090: 배포 전 amd64 부팅 가드는 대기열 몫).
       guard: ${{ github.event_name != 'pull_request' && '1' || '' }}
-      # e2e(#1089) — PR 은 바뀐 앱의 시험만, 병합 대기열은 전부를 조각 나란히로(e2e_plan.py). main push(release 의 check)는 돌지 않는다:
-      # 대기열이 같은 트리를 이미 돌았다.
+      # e2e(#1089) — PR 은 바뀐 앱의 시험만, 병합 대기열은 전부를 조각 나란히로(e2e_plan.py).
       e2e: ${{ steps.plan.outputs.e2e }}
       e2e_matrix: ${{ steps.plan.outputs.e2e_matrix }}
     steps:
@@ -74,20 +68,16 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      # release.yml 의 verify 잡(#959)이 jobs API 로 이 단계 이름을 읽어 「이 트리는 이미 초록」을 증명한다 — 이름 꼴을 바꾸지 않는다
-      # (scripts/ci/verified_tree.py 의 TESTED_STEP). PR 이면 github.sha 는 refs/pull/N/merge 커밋이다.
-      - name: 검사한 커밋 ${{ github.sha }}
-        run: echo "트리 $(git rev-parse HEAD^{tree})"
       - id: plan
         name: 무엇을 돌릴지
         run: |
           base=$(git merge-base origin/main HEAD 2>/dev/null || true)
-          # main push 는 기준이 HEAD 자신이라 「바뀐 것 없음」→ 전부 돈다(changed.sh)
+          # 기준을 못 찾거나 HEAD 자신이면 「바뀐 것 없음」→ 전부 돈다(changed.sh)
           plan=$(bash scripts/ci/changed.sh "$base")
           echo "돌릴 것: $plan (기준 ${base:0:12})"
           tests=$(sed -n 's/^TESTS=//p' <<<"$plan"); back=$(sed -n 's/^BACK=//p' <<<"$plan"); front=$(sed -n 's/^FRONT=//p' <<<"$plan")
           # static 은 시험이 있으면 늘 돈다(schema.gen.ts 최신성 포함). pytest 는 백엔드, web 은 프런트가 바뀌었을 때만.
-          # pytest 조각(#1088): PR 은 바뀐 앱의 시험만, 그 밖(대기열·main push)은 전부 — 조각 수는 시간 기록으로 pytest_plan.py 가 정한다
+          # pytest 조각(#1088): PR 은 바뀐 앱의 시험만, 대기열은 전부 — 조각 수는 시간 기록으로 pytest_plan.py 가 정한다
           include='[{"name":"static","args":"static"}]'
           pytest_files=''; pytest_all=0
           if [ "$back" = 1 ]; then
@@ -149,7 +139,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
-      - run: mkdir -p /tmp/bk /tmp/bk-new && cd /tmp/bk && mkdir -p backend frontend operator classroom ci
+      - run: mkdir -p /tmp/bk && cd /tmp/bk && mkdir -p backend frontend operator classroom ci
       - id: bk-ci
         name: 이미지 층 캐시 복원(ci)
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -159,19 +149,11 @@ jobs:
           restore-keys: bk-ci-
       - name: 검사 묶음(sub-checks.sh)
         env:
-          # 마이그레이션 호환 검사(#1091)의 base — PR 은 병합 대상, 대기열은 그 머지 커밋의 base, main push(release.yml)는 직전 main
-          CODEMIT_MIGRATION_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
+          # 마이그레이션 호환 검사(#1091)의 base — PR 은 병합 대상, 대기열은 그 머지 커밋의 base
+          CODEMIT_MIGRATION_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
           # PR 의 선택 실행이 고른 시험 파일(#1088) — 빈 값이면 전부(pytest_shards.py pick)
           CODEMIT_PYTEST_FILES: ${{ needs.plan.outputs.pytest_files }}
         run: bash scripts/ci/sub-checks.sh ${{ matrix.args }}
-      - if: success() && env.CODEMIT_BK_CACHE_SAVE != '' && steps.bk-ci.outputs.cache-hit != 'true'
-        name: 이미지 층 캐시 저장(ci, main push 만)
-        run: rm -rf /tmp/bk/ci && mv /tmp/bk-new/ci /tmp/bk/ci
-      - if: success() && env.CODEMIT_BK_CACHE_SAVE != '' && steps.bk-ci.outputs.cache-hit != 'true'
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: /tmp/bk/ci
-          key: bk-ci-${{ hashFiles('docker/ci.Dockerfile','backend/uv.lock','pnpm-lock.yaml') }}
       # pytest 조각의 시간 기록(#1083) — 초록이어도 올린다. scripts/ci/pytest-durations-update.sh 가 받아 기록을 다시 쓴다.
       # 전부를 돈 실행만(#1088) — 일부만 돈 PR 의 junit 으로 기록을 쓰면 안 돈 파일이 0초가 된다
       - if: success() && startsWith(matrix.name, 'pytest-') && needs.plan.outputs.pytest_all == '1'
@@ -202,7 +184,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
-      - run: mkdir -p /tmp/bk /tmp/bk-new && cd /tmp/bk && mkdir -p backend frontend operator classroom ci
+      - run: mkdir -p /tmp/bk && cd /tmp/bk && mkdir -p backend frontend operator classroom ci
       - id: bk-app
         name: 이미지 층 캐시 복원(${{ matrix.app }})
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -213,25 +195,13 @@ jobs:
       - name: prod 이미지 굽기(amd64)
         run: |
           target=$(python3 scripts/ci/image_context.py field "${{ matrix.app }}" target)
-          cache=(--cache-from "type=local,src=$CODEMIT_BK_CACHE/${{ matrix.app }}")
-          if [ -n "$CODEMIT_BK_CACHE_SAVE" ]; then
-            cache+=(--cache-to "type=local,dest=$CODEMIT_BK_CACHE_NEW/${{ matrix.app }},mode=max")
-          fi
           docker build -q --load -f "docker/${{ matrix.app }}.Dockerfile" ${target:+--target "$target"} \
-            "${cache[@]}" -t "codemit-${{ matrix.app }}:gha-guard" .
+            --cache-from "type=local,src=$CODEMIT_BK_CACHE/${{ matrix.app }}" -t "codemit-${{ matrix.app }}:gha-guard" .
       - name: 부팅 가드(deploy-guard.sh)
         env:
           CODEMIT_GUARD_ARCH: amd64
           CODEMIT_GUARD_IMAGE: codemit-${{ matrix.app }}:gha-guard
         run: bash scripts/ci/deploy-guard.sh "${{ matrix.app }}"
-      - if: success() && env.CODEMIT_BK_CACHE_SAVE != '' && steps.bk-app.outputs.cache-hit != 'true'
-        name: 이미지 층 캐시 저장(main push 만)
-        run: rm -rf /tmp/bk/${{ matrix.app }} && mv /tmp/bk-new/${{ matrix.app }} /tmp/bk/${{ matrix.app }}
-      - if: success() && env.CODEMIT_BK_CACHE_SAVE != '' && steps.bk-app.outputs.cache-hit != 'true'
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: /tmp/bk/${{ matrix.app }}
-          key: bk-${{ matrix.app }}-${{ hashFiles(format('docker/{0}.Dockerfile', matrix.app), 'pnpm-lock.yaml') }}
   celery:
     needs: plan
     if: needs.plan.outputs.tests == '1' && needs.plan.outputs.back == '1'
@@ -242,7 +212,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
-      - run: mkdir -p /tmp/bk /tmp/bk-new && cd /tmp/bk && mkdir -p backend frontend operator classroom ci
+      - run: mkdir -p /tmp/bk && cd /tmp/bk && mkdir -p backend frontend operator classroom ci
       - id: bk-cbackend
         name: 이미지 층 캐시 복원(backend)
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -273,7 +243,6 @@ jobs:
           restore-keys: bk-classroom-
       - name: celery 브로커(celery-broker.sh)
         env:
-          CODEMIT_BK_CACHE_SAVE: ""  # 저장은 guard 잡이 한다 — 같은 키를 두 잡이 쓰지 않는다
         run: bash scripts/ci/celery-broker.sh
 
   agent-grader:
@@ -309,7 +278,7 @@ jobs:
         with:
           persist-credentials: false
       - uses: docker/setup-buildx-action@b5ca514318bd6ebac0fb2aedd5d36ec1b5c232a2 # v3.10.0
-      - run: mkdir -p /tmp/bk /tmp/bk-new && cd /tmp/bk && mkdir -p backend frontend operator classroom ci
+      - run: mkdir -p /tmp/bk && cd /tmp/bk && mkdir -p backend frontend operator classroom ci
       - id: bk-backend
         name: 이미지 층 캐시 복원(backend)
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -371,24 +340,6 @@ jobs:
           CODEMIT_E2E_TARGETS: ${{ matrix.project }}
           CODEMIT_E2E_PATHS: ${{ matrix.paths }}
         run: bash scripts/ci/e2e.sh
-      - if: success() && env.CODEMIT_BK_CACHE_SAVE != '' && steps.bk-backend.outputs.cache-hit != 'true'
-        name: 이미지 층 캐시 저장(backend, main push 만)
-        run: rm -rf /tmp/bk/backend && mv /tmp/bk-new/backend /tmp/bk/backend
-      - if: success() && env.CODEMIT_BK_CACHE_SAVE != '' && steps.bk-backend.outputs.cache-hit != 'true'
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: /tmp/bk/backend
-          key: bk-backend-${{ hashFiles('docker/backend.Dockerfile','backend/uv.lock') }}
-      - if: success() && env.CODEMIT_BK_CACHE_SAVE != '' && steps.bk-pnpm.outputs.cache-hit != 'true'
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
-      - if: success() && env.CODEMIT_BK_CACHE_SAVE != '' && steps.bk-pw.outputs.cache-hit != 'true'
-        uses: actions/cache/save@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ steps.pnpm-store.outputs.pw }}
       - if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -429,7 +380,7 @@ jobs:
           else
             want_checks=skipped; want_celery=skipped; want_guard=skipped; want_agent_grader=skipped
           fi
-          # e2e: plan 이 조각을 냈으면 success, 아니면 skipped(바뀐 앱에 시험이 없거나 main push)
+          # e2e: plan 이 조각을 냈으면 success, 아니면 skipped(바뀐 앱에 시험이 없다)
           if [ "$E2E_ON" = 1 ]; then want_e2e=success; else want_e2e=skipped; fi
           bad=0
           for pair in "checks:$CHECKS:$want_checks" "guard:$GUARD:$want_guard" "celery:$CELERY:$want_celery" "agent-grader:$AGENT_GRADER:$want_agent_grader" "e2e:$E2E:$want_e2e"; do
