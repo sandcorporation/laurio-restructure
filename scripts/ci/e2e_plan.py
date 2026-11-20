@@ -36,7 +36,7 @@ E2E = ROOT / "frontend" / "e2e"
 PSEUDO_APP = "frontend"  # 백엔드 앱이 없는 시험 — 앞단이 바뀔 때만 돈다
 PROJECTS = ("public", "operator", "classroom")
 #: 조각 하나가 맡을 시험 시간(기록 기준, 초). 기록 합 ~130초 → 전부면 MAX_SHARDS. 조각마다 스택 굽기가 ~3.5분이라
-#: 조각 사이 차는 거의 시험 시간에서 난다(#1112 측정).
+#: 조각 사이 차는 거의 시험 시간에서 난다(#1112 측정). 층 캐시가 찬 뒤의 굽기는 #1116 에서 다시 잰다.
 SHARD_SECONDS = 15.0
 MAX_SHARDS = 8
 TEST_CALL = re.compile(r"^\s*test(?:\.[a-z]+)*\(", re.MULTILINE)
