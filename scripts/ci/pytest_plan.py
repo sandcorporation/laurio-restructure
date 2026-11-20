@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app_deps import Declared, affected, load_table  # noqa: E402
+from paths import kind  # noqa: E402
 from pytest_shards import read_record, test_files  # noqa: E402
 from tests_layout import touched as _touched  # noqa: E402
 
@@ -39,7 +40,6 @@ ROOT = Path(__file__).resolve().parents[2]
 #: 조각 하나가 맡을 시험 시간(기록 기준, 초). 기록 합 ~720초 → 전부면 6조각, 조각마다 xdist 로 ~60초.
 SHARD_SECONDS = 120.0
 MAX_SHARDS = 6
-FRONT = ("frontend/", "operator/", "classroom/", "packages/")
 #: 통합 시험마다 닿는 앱 — 시험 파일 전부를 읽어 1초 남짓이라 한 번만
 touched = functools.cache(_touched)
 
@@ -56,7 +56,8 @@ def select(
     backend: list[str] = []
     direct: set[str] = set()
     for f in changed:
-        if f.endswith(".md") or f.startswith("docs/") or f.startswith(FRONT):
+        k = kind(f)
+        if k in ("docs", "front"):
             continue
         rel = f.removeprefix("backend/")
         if f.startswith("backend/tests/") and Path(f).name.startswith("test_") and f.endswith(".py"):
@@ -64,7 +65,7 @@ def select(
                 direct.add(rel)
             # 지운 시험 파일은 돌릴 것이 없다
             continue
-        if not f.startswith("backend/"):
+        if k != "backend":
             return None
         backend.append(f)
     apps: set[str] = set()
