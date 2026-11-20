@@ -23,8 +23,8 @@ class ScoringConfig(AppConfig):
         # 완성도 스캔(#884, ADR-0072) — Score 가 생긴 제출을 뒤따라 집는다. Score 흐름과 따로 돈다.
         register_scan(SUBMISSION_QUALITY_SCAN)
         # 에이전트 채점 실행기 계약(#1085) — 공유층(`core.agent_scoring`)이 실행 틀을 import 하지 않고 여기서 받는다.
-        from core.agent_ports import register_agent_grader
+        from core.agent_ports import AGENT_GRADER
 
         from . import agent_runner
 
-        register_agent_grader(agent_runner)
+        AGENT_GRADER.register(agent_runner)

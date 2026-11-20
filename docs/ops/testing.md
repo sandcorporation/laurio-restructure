@@ -252,7 +252,7 @@ scripts/test.sh backend tests/test_x.py   # db 하나만 띄우고(스크립트�
 **앱 import 순환은 `python3 scripts/app_import_cycles.py` 로 센다**(#1085, spec #1079) — 모듈 최상단 import 만
 세어 강결합 덩어리(서로 닿는 앱 묶음)의 크기와 구성을 보이고, `--edges` 는 덩어리마다 그 안의 import 자리를
 파일:줄로 보인다. 공유층이 기능 앱을 부르던 다섯 자리를 기능 앱이 등록하는 꼴로 뒤집어(`core.agent_ports`,
-`submissions.resolvers.register_target_shape`) 18앱 한 덩어리가 8앱(appeals·awards·contests·distributions·handovers·
+`submissions.resolvers.TARGET_SHAPES` — 자리는 한 모양 `core.registry.Slot`·`Slots`) 18앱 한 덩어리가 8앱(appeals·awards·contests·distributions·handovers·
 payments·payouts·scoring)과 4앱(core·policies·storage·submissions)으로 갈렸다.
 
 **`INSTALLED_APPS` 에 앱을 더하면 그 표에 분류를 적기 전까지 빨갛다.** 한 방향으로만

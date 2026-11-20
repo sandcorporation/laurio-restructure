@@ -10,15 +10,18 @@ from classroom import scoring_connection, scoring_cost
 from classroom.submission_target_state import resolve_classroom_submission
 from contests.submission_target_state import resolve_contest_submission
 from core import agent_ports
+from core.registry import PortNotRegistered, Slot, Slots
+from handovers.services import build_asset_content_type
 from scoring import agent_runner
 from submissions import resolvers
 
 
 def test_django_setup_registers_every_port_with_the_feature_app_implementation() -> None:
     assert agent_ports.agent_grader() is agent_runner
-    assert agent_ports._class_vendor_key is scoring_connection.agent_vendor_key
-    assert agent_ports._price_for is scoring_cost.price_for
-    assert resolvers._TARGET_SHAPES == {
+    assert agent_ports.CLASS_VENDOR_KEY.get() is scoring_connection.agent_vendor_key
+    assert agent_ports.PRICE_FOR.get() is scoring_cost.price_for
+    assert resolvers.BUILD_ASSET_CONTENT_TYPE.get() is build_asset_content_type
+    assert resolvers.TARGET_SHAPES.as_dict() == {
         "submission": resolve_contest_submission,
         "classroom-submission": resolve_classroom_submission,
     }
@@ -46,17 +49,17 @@ def test_vendor_literal_matches_the_runner_file() -> None:
 @pytest.mark.parametrize(
     ("attr", "call"),
     [
-        ("_agent_grader", agent_ports.agent_grader),
-        ("_class_vendor_key", lambda: agent_ports.class_vendor_key(1, "anthropic")),
-        ("_price_for", lambda: agent_ports.price_for("gpt-5")),
+        ("AGENT_GRADER", agent_ports.agent_grader),
+        ("CLASS_VENDOR_KEY", lambda: agent_ports.class_vendor_key(1, "anthropic")),
+        ("PRICE_FOR", lambda: agent_ports.price_for("gpt-5")),
     ],
 )
 def test_unregistered_port_stops_instead_of_passing_quietly(monkeypatch: pytest.MonkeyPatch, attr: str, call) -> None:  # noqa: ANN001 - 인자 없는 호출 하나
-    monkeypatch.setattr(agent_ports, attr, None)
-    with pytest.raises(agent_ports.PortNotRegistered):
+    monkeypatch.setattr(agent_ports, attr, Slot("빈 자리", "시험"))
+    with pytest.raises(PortNotRegistered):
         call()
 
 
 def test_unregistered_target_shape_is_fail_closed(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(resolvers, "_TARGET_SHAPES", {})
+    monkeypatch.setattr(resolvers, "TARGET_SHAPES", Slots("빈 자리"))
     assert resolvers.SubmissionTargetStateResolver().resolve("submission:1:2:source") == resolvers.DENY_TARGET

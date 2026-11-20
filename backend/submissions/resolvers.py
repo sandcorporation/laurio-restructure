@@ -14,7 +14,8 @@ target_ref 형식은 `submissions.target_refs`에 있다: 이 리졸버는 그 �
 강의실 모양(`classroom.submission_target_refs`)이다 — 강의실은 마감도 Award도
 Sponsor도 없어 `본인만`이라는 훨씬 단순한 규칙 하나로 끝난다. 두 모양의 판정은
 각 앱(`contests.submission_target_state`·`classroom.submission_target_state`)에 있고
-`register_target_shape` 로 여기 올라온다(#1085).
+`TARGET_SHAPES` 에 올라온다(#1085). 빌드 자산의 content-type 은 `handovers.apps` 가
+`BUILD_ASSET_CONTENT_TYPE` 에 올린다.
 
 "마감"은 Contest.status가 아니라 `deadline_at`과 `core.clock.Clock.now()`를 직접
 비교한다 — Contest 상태 전이 자체(#11, 스케줄러 틱)를 기다리지 않는다. 이 티켓은
@@ -30,10 +31,9 @@ Contest)는 예외를 던지지 않고 소유자 없는 private으로 fail-close
 — 자산이 곧 정체성이 아니라 **object_key가** 정체성이라, target_ref는 보지 않고
 object_key로만 찾는다(한 target_ref/슬롯 아래 여러 오브젝트가 쌓일 수 있어
 target_ref만으로는 어느 것인지 가릴 수 없다 — `submissions.target_refs`의
-BUILD_ASSET_SLOT 설명 참고). `handovers.models`를 함수 안에서 지역 임포트하는
-이유는 순환 임포트를 피하기 위해서다 — `handovers`가 이미 `submissions.models`를
-임포트하므로, 모듈 최상단에서 반대 방향으로 임포트하면 두 앱이 서로를 참조하게
-된다.
+BUILD_ASSET_SLOT 설명 참고). 빌드 자산 쪽 조회는 `handovers` 가 올린다
+(`BUILD_ASSET_CONTENT_TYPE`, #1085) — `handovers` 가 이미 `submissions.models` 를
+임포트하므로 반대 방향 import 는 두 앱을 서로 묶는다.
 
 **`SubmissionMaxUploadSizeResolver`(#261)도 별도 확장점이다.** target_ref의
 슬롯(소스·시연 영상·빌드 자산)마다 PlatformPolicy의 종류별 바이트 상한(#263)을
@@ -47,6 +47,7 @@ from collections.abc import Callable
 
 from django.conf import settings
 
+from core.registry import Slot, Slots
 from policies.scope import current_policy
 from storage.policy import TargetState, Visibility
 
@@ -61,11 +62,11 @@ TargetShapeResolver = Callable[[list[str]], TargetState]
 
 #: 모양(접두어) → 판정. 공모전(`"submission"`)은 `contests.apps`, 강의실(`"classroom-submission"`)은 `classroom.apps` 가
 #: 올린다(#1085) — 이 공유층이 두 기능 앱을 최상단에서 import 하지 않게. 올라오지 않은 모양은 fail-closed.
-_TARGET_SHAPES: dict[str, TargetShapeResolver] = {}
+TARGET_SHAPES: Slots[TargetShapeResolver] = Slots("target_ref 모양")
 
-
-def register_target_shape(prefix: str, resolver: TargetShapeResolver) -> None:
-    _TARGET_SHAPES[prefix] = resolver
+#: object_key → 빌드 자산의 content-type(모르면 None) — 빌드 자산(`BuildAsset`)은 handovers 소유라 `handovers.apps` 가
+#: 올린다(#241, #1085). 소스·시연 영상(이 앱의 `SubmissionAsset`)에 없을 때만 묻는다.
+BUILD_ASSET_CONTENT_TYPE: Slot[Callable[[str], str | None]] = Slot("빌드 자산 content-type", "handovers.apps")
 
 
 class SubmissionTargetStateResolver:
@@ -73,7 +74,7 @@ class SubmissionTargetStateResolver:
         parts = target_ref.split(":")
         if len(parts) != 4:
             return DENY_TARGET
-        resolver = _TARGET_SHAPES.get(parts[0])
+        resolver = TARGET_SHAPES.get(parts[0])
         if resolver is None:
             return DENY_TARGET
         return resolver(parts)
@@ -123,15 +124,7 @@ class SubmissionContentTypeResolver:
         if content_type:
             return content_type
 
-        # APP-BOUNDARY-EXCEPTION: 빌드 자산의 content-type은 handovers 소유다 — object_key 하나로 소스·시연영상(submissions)과 빌드 자산(handovers) 두 테이블을 모두 찾아야 하는 이 리졸버의 태생적 결합이다(#241)
-        from handovers.models import BuildAsset
-
-        return (
-            BuildAsset.objects.filter(object_key=object_key)
-            .exclude(content_type="")
-            .values_list("content_type", flat=True)
-            .first()
-        )
+        return BUILD_ASSET_CONTENT_TYPE.get()(object_key)
 
 
 # target_ref의 슬롯(마지막 세그먼트) -> PlatformPolicy의 종류별 바이트 상한 필드

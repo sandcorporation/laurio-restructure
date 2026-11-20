@@ -48,16 +48,16 @@ class ClassroomConfig(AppConfig):
         # 같은 이유로 여기서 등록한다(django.setup() 이후에만 평가돼야 한다).
         register(checks.check_classroom_scoring_adapter_mode, BOOT_CHECK_TAG)
         # 공유층이 강의실에 기대던 두 자리(#1085) — `core.llm_proxy` 의 클래스 키, `core.agent_run_tokens` 의 모델 단가.
-        from core.agent_ports import register_class_vendor_key, register_price_for
+        from core.agent_ports import CLASS_VENDOR_KEY, PRICE_FOR
 
         from .scoring_connection import agent_vendor_key
         from .scoring_cost import price_for
 
-        register_class_vendor_key(agent_vendor_key)
-        register_price_for(price_for)
+        CLASS_VENDOR_KEY.register(agent_vendor_key)
+        PRICE_FOR.register(price_for)
         # 강의실 모양 target_ref 의 가시성 판정(#1085) — 공유층 `submissions.resolvers` 가 강의실을 import 하지 않게.
-        from submissions.resolvers import register_target_shape
+        from submissions.resolvers import TARGET_SHAPES
 
         from .submission_target_state import resolve_classroom_submission
 
-        register_target_shape("classroom-submission", resolve_classroom_submission)
+        TARGET_SHAPES.register("classroom-submission", resolve_classroom_submission)

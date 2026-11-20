@@ -160,8 +160,8 @@ class ContestsConfig(AppConfig):
         )
 
         # 공모전 모양 target_ref 의 가시성 판정(#1085) — 공유층 `submissions.resolvers` 가 공모전을 import 하지 않게 여기서 올린다.
-        from submissions.resolvers import register_target_shape
+        from submissions.resolvers import TARGET_SHAPES
 
         from .submission_target_state import resolve_contest_submission
 
-        register_target_shape("submission", resolve_contest_submission)
+        TARGET_SHAPES.register("submission", resolve_contest_submission)

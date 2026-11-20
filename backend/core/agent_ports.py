@@ -1,7 +1,7 @@
 """공유층이 기능 앱에 기대던 자리 — 기능 앱이 `AppConfig.ready()` 에서 제 구현을 등록한다(#1085, spec #1079 결정 4).
 
 공유층(`core`)이 기능 앱을 최상단에서 import 하면 앱 import 그래프가 한 순환으로 묶인다. 그래서 방향을 뒤집어
-기능 앱이 여기에 올리고, 공유층은 부를 때 여기서 꺼낸다. 등록하기 전에 부르면 `PortNotRegistered` 로 멈춘다 —
+기능 앱이 여기에 올리고, 공유층은 부를 때 여기서 꺼낸다. 자리는 `core.registry.Slot` 이고, 등록하기 전에 부르면 `PortNotRegistered` 로 멈춘다 —
 조용히 비켜 가지 않는다(Django 가 뜨면 `ready()` 가 늘 먼저 돈다: 웹·celery·`manage.py llm_proxy` 모두).
 
 | 자리 | 쓰는 곳 | 올리는 곳 |
@@ -19,6 +19,8 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from typing import Literal, NotRequired, Protocol, TypedDict
+
+from core.registry import Slot
 
 Vendor = Literal["anthropic", "openai"]
 
@@ -80,43 +82,21 @@ ClassVendorKey = Callable[[int, str], str]
 PriceFor = Callable[[str], ModelPrice | None]
 
 
-class PortNotRegistered(RuntimeError):
-    """기능 앱이 아직 올리지 않은 자리를 불렀다 — 그 앱이 INSTALLED_APPS 에 없거나 Django 가 뜨기 전이다."""
-
-
-_agent_grader: AgentGrader | None = None
-_class_vendor_key: ClassVendorKey | None = None
-_price_for: PriceFor | None = None
-
-
-def register_agent_grader(grader: AgentGrader) -> None:
-    global _agent_grader
-    _agent_grader = grader
+#: 실행 틀 모듈 — `scoring.apps` 가 올린다.
+AGENT_GRADER: Slot[AgentGrader] = Slot("에이전트 채점 실행기", "scoring.apps")
+#: 클래스 키 풀기 — `classroom.apps` 가 올린다.
+CLASS_VENDOR_KEY: Slot[ClassVendorKey] = Slot("클래스 키 풀기", "classroom.apps")
+#: 모델 단가표 — `classroom.apps` 가 올린다.
+PRICE_FOR: Slot[PriceFor] = Slot("모델 단가표", "classroom.apps")
 
 
 def agent_grader() -> AgentGrader:
-    if _agent_grader is None:
-        raise PortNotRegistered("에이전트 채점 실행기가 등록되지 않았다(scoring.apps)")
-    return _agent_grader
-
-
-def register_class_vendor_key(fn: ClassVendorKey) -> None:
-    global _class_vendor_key
-    _class_vendor_key = fn
+    return AGENT_GRADER.get()
 
 
 def class_vendor_key(class_id: int, vendor: str) -> str:
-    if _class_vendor_key is None:
-        raise PortNotRegistered("클래스 키 풀기가 등록되지 않았다(classroom.apps)")
-    return _class_vendor_key(class_id, vendor)
-
-
-def register_price_for(fn: PriceFor) -> None:
-    global _price_for
-    _price_for = fn
+    return CLASS_VENDOR_KEY.get()(class_id, vendor)
 
 
 def price_for(model_id: str) -> ModelPrice | None:
-    if _price_for is None:
-        raise PortNotRegistered("모델 단가표가 등록되지 않았다(classroom.apps)")
-    return _price_for(model_id)
+    return PRICE_FOR.get()(model_id)
