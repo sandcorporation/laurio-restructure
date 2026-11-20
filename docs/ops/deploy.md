@@ -456,9 +456,8 @@ TABLE 이 줄을 서면 `classroom_classroomsubmission` 의 뒤 쿼리가 전부
   `docker compose … exec -T db sh -c 'pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < <덤프>`
   ([운영](operations.md)의 02:00 백업 복원과 같은 줄이다).
   `backend/tests/test_deploy_predeploy_dump.py` 가 가짜 docker 로 판정·멈춤·보관·권한을 본다.
-- **물러서는 배포가 셋이다** — 배포 범위의 마이그레이션에 `# ROLLING-DEPLOY-UNSAFE: <이유>`
-  표식이 있을 때(PR 검사가 표식을 보지 않고 호환되지 않는 마이그레이션을 거절해 지금은 닿지 않는다), 풀러를 바꿀 때(「풀러를 바꿔 끼울 때는」), 겹칠 옛 컨테이너가 없을 때(직전
-  배포 표식이 없을 때 포함). 그때는 넷을 먼저 내리고 migrate 를 돌린 뒤 올린다. 그동안 backend
+- **물러서는 배포가 둘이다** — 풀러를 바꿀 때(「풀러를 바꿔 끼울 때는」), 겹칠 옛 컨테이너가 없을 때(직전
+  배포 표식이 없을 때 포함). 옛 `# ROLLING-DEPLOY-UNSAFE:` 표식 길은 지웠다(#1092 — 호환 검사에 예외가 없어 닿지 않았다). 그때는 넷을 먼저 내리고 migrate 를 돌린 뒤 올린다. 그동안 backend
   가 없고, 그 창은 공개 앱 재시도 예산보다 길 수 있다. migrate 가 실패하면 내렸던 옛
   컨테이너를 다시 켠다. `deploy.sh plan` 이 어느 쪽인지와 이유를 출력한다.
 - **그래서 호스트 포트가 없다** — 같은 서비스 둘이 한 호스트 포트를 잡을 수 없다. 쓰는 곳이
