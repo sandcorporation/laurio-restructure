@@ -37,3 +37,11 @@ class PayoutsConfig(AppConfig):
 
         for spec in DISTRIBUTION_PAYOUT_SCANS:
             register_scan(spec)
+
+        # 탈퇴 판정 중 지급 몫(#1086) — 공유층 `accounts.withdrawal` 이 지급을 import 하지 않게.
+        from accounts.ports import DEVELOPER_PAYOUT_IN_PROGRESS, DEVELOPER_TRANSACTION_BASIS
+
+        from .withdrawal import developer_has_payout_in_progress, developer_transaction_basis
+
+        DEVELOPER_PAYOUT_IN_PROGRESS.register(developer_has_payout_in_progress)
+        DEVELOPER_TRANSACTION_BASIS.register(developer_transaction_basis)

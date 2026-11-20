@@ -21,6 +21,9 @@ purge_identity`(#470) 한 곳뿐이다 — `execute_withdrawal`과 이 모듈은
 `retained-identity-purge`. 마지막 행위 시각은 저장하지 않고 후보 쿼리가 SQL 에서
 `Greatest(...)` 로 계산해 걸러낸다 — 그래야 배치 상한과 정렬이 성립한다(전에는 모든
 VERIFIED 행을 파이썬으로 훑으며 행마다 쿼리를 셋씩 더 냈다).
+
+#1086 에서 `accounts` 에서 이 앱으로 옮겨왔다 — 공유층(`accounts`)이 본인확인 기록을 직접 읽지 않도록.
+스캔 이름은 그대로다.
 """
 
 from __future__ import annotations
@@ -33,9 +36,12 @@ from django.db.models.functions import Greatest
 
 from core.scans import ScanSpec
 
-from .models import PhoneContact
-from .signals import user_became_dormant
-from .withdrawal import _transaction_basis, blocking_reasons
+from accounts.models import PhoneContact
+from accounts.signals import user_became_dormant
+from accounts.withdrawal import _transaction_basis, blocking_reasons
+
+from .models import RetainedIdentity, Verification
+from .purge import purge_identity
 
 # 개인정보 유효기간제(휴면 1년 의무)는 2023년 9월 폐지되어 기간은 자율이다(ADR-0025).
 # 2년은 Contest 한 사이클(마감 21일 + 심사 7일 + 배분 대기 14일 = 42일)을 여러 번
@@ -59,9 +65,6 @@ def _dormant_verifications(as_of, ctx):
     그러나 신원이 실제로 쓰이는 지점(본인확인·제출·개최)은 모두 포함하므로, 이
     지점들이 2년간 하나도 없었다면 신원을 계속 들고 있을 근거가 실질적으로 없다.
     """
-
-    # APP-BOUNDARY-EXCEPTION: 휴면 판정의 기준 시점이 본인확인 기록에 있다
-    from verification.models import Verification
 
     return (
         Verification.objects.filter(
@@ -94,9 +97,6 @@ def _purge_dormant_identity(verification, as_of, ctx):
     부른다.
     """
 
-    # APP-BOUNDARY-EXCEPTION: 파기 절차를 그 앱의 서비스 함수가 든다(#470)
-    from verification.purge import purge_identity
-
     user = verification.user
     if blocking_reasons(user):
         return None
@@ -112,9 +112,6 @@ def _purge_dormant_identity(verification, as_of, ctx):
 
 
 def _expired_retained_identities(as_of, ctx):
-    # APP-BOUNDARY-EXCEPTION: 파기 대상이 보존된 신원 자체다
-    from verification.models import RetainedIdentity
-
     return RetainedIdentity.objects.filter(retained_until__lte=as_of)
 
 

@@ -924,7 +924,7 @@ def test_dormant_verified_account_has_identity_purged_but_account_and_submission
 def test_dormancy_boundary_just_under_and_at_two_years(client):
     """경계값 — 막 2년이 된 것과 아직 안 된 것을 같은 테스트에서 대비시킨다(#102 AC)."""
 
-    from accounts.dormancy import DORMANCY_PERIOD
+    from verification.dormancy import DORMANCY_PERIOD
     from django.contrib.auth import get_user_model
 
     pair = _login(client, uid="boundary-user")
@@ -1063,7 +1063,7 @@ def test_dormancy_scan_isolates_an_account_whose_purge_raises(client):
 
     from django.contrib.auth import get_user_model
 
-    import accounts.dormancy as dormancy_module
+    import verification.dormancy as dormancy_module
 
     users = []
     for i in range(2):
