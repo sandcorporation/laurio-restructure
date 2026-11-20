@@ -35,6 +35,8 @@ env:
 
 jobs:
   gate:
+    # 포크(#1084)에서는 스케줄로 돌지 않는다(수동 실행만). 본 저장소에서는 늘 참이라 무해하다.
+    if: github.repository == 'sandcorporation/laurio' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -168,7 +170,8 @@ jobs:
 
   notify:
     needs: [gate, e2e]
-    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && ((needs.gate.outputs.run == '1' && (needs.e2e.result == 'failure' || needs.e2e.result == 'success')) || (inputs.simulate || 'none') != 'none') }}
+    # 포크(#1084)에서는 실패 이슈를 만들지 않는다.
+    if: ${{ !cancelled() && github.repository == 'sandcorporation/laurio' && github.ref == 'refs/heads/main' && ((needs.gate.outputs.run == '1' && (needs.e2e.result == 'failure' || needs.e2e.result == 'success')) || (inputs.simulate || 'none') != 'none') }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

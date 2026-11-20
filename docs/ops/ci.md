@@ -276,3 +276,22 @@ result.ts` 의 `normalizeDetail`)라 첫 스텝이 볼 수 없던 표면이다. 
 자리는 나중에 채운다」는 뜻으로만 쓰이는 토막만 담는다 —
 `scripts/test_check_screen_language.py` 가 「남은 자리가 없습니다」 같은 정상
 문구가 통과하는 것까지 고정한다.
+
+### 포크 `laurio-restructure` — 이미지·승격·스케줄·이슈는 돌지 않는다, 병합은 대기열로(#1084)
+
+구조 재편(#1079)은 포크에서 한다. 포크에는 비밀값·변수·환경이 없고, 같은 워크플로가 돌되 운영에 닿는 잡은
+`github.repository == 'sandcorporation/laurio'` 조건으로 멈춘다(본 저장소에서는 늘 참이라 무해하다).
+
+| 워크플로 | 포크에서 |
+| --- | --- |
+| `release.yml` | `main_only` 가 건너뛰어 verify·check·image·promote·notify 가 모두 멈춘다 |
+| `image.yml` | `build` 가 건너뛴다(수동 실행도) — 운영 이미지 저장소에 올리지 않는다 |
+| `e2e.yml` | 스케줄로 돌지 않는다(수동 실행만), 실패 이슈를 열지 않는다 |
+| `pr-check.yml` | PR 과 병합 대기열(`merge_group`) 양쪽에서 돈다 |
+
+포크 main 은 ruleset `main-merge-queue` 의 병합 대기열(squash)과 필수 검사 「결과」로만 들어간다.
+`scripts/test_release_flow.py` 가 위 조건과 `merge_group` 트리거를 고정한다.
+
+본 저장소 main 은 매일(그리고 포크 티켓을 시작하기 전에) `bash scripts/fork/sync-upstream.sh` 로 당겨 맞춘다 —
+마지막으로 당긴 sha(`scripts/fork/upstream-sha`)부터의 차이를 얹어 PR 을 열고 대기열에 넣는다. 충돌이면 멈춘다.
+`scripts/fork/` 는 본 저장소로 되돌리는 PR 에 싣지 않는다.

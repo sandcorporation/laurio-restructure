@@ -35,6 +35,8 @@ permissions:
 jobs:
   # 승격은 main 에서만(#1018) — 수동 실행으로 브랜치를 골라도 production 이 그 머리로 가지 않게, 모든 잡이 이 잡 success 를 기다린다
   main_only:
+    # 포크(#1084)에서는 돌지 않는다 — 운영 이미지 저장소·production 을 건드리지 않게. 본 저장소에서는 늘 참이라 무해하다.
+    if: github.repository == 'sandcorporation/laurio'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

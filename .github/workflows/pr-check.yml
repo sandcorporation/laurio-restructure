@@ -26,6 +26,8 @@ name: PR 검사
 
 on:
   pull_request:
+  # 병합 대기열(#1084) — 대기열이 만든 머지 커밋을 같은 검사로 판정한다. 필수 검사 「결과」가 여기서도 나온다.
+  merge_group:
   # main 에서는 release.yml 이 이 워크플로를 workflow_call 로 부른다(#938) — 통과해야 이미지·승격으로 간다.
   # 그때 github.event_name·github.ref 는 부른 쪽의 것(push, refs/heads/main)이라 캐시 저장(CODEMIT_BK_CACHE_SAVE)이 그대로 돈다.
   workflow_call:

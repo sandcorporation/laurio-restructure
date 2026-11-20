@@ -33,6 +33,8 @@ concurrency:
 jobs:
   build:
     name: build (${{ matrix.service }})
+    # 포크(#1084)에서는 돌지 않는다 — 운영 이미지 저장소·production 을 건드리지 않게. 본 저장소에서는 늘 참이라 무해하다.
+    if: github.repository == 'sandcorporation/laurio'
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 40
     strategy:

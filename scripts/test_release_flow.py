@@ -76,6 +76,25 @@ class ReleaseFlowTest(unittest.TestCase):
         self.assertIn('bash scripts/ci/promote.sh ff "$SHA"', promote)
         self.assertIn("fetch-depth: 0", promote)
 
+    def test_fork_does_not_publish_promote_schedule_or_open_issues(self) -> None:
+        # 포크(#1084)에는 비밀값이 없지만 GITHUB_TOKEN 으로 운영 이미지 저장소에 올리고 production 을 옮기고 이슈를 열 수 있다.
+        # 본 저장소에서만 도는 조건이 그 잡들 머리에 있어야 한다(본 저장소에서는 늘 참).
+        only_upstream = "github.repository == 'sandcorporation/laurio'"
+        release = read(WORKFLOWS / "release.yml")
+        # 승격·이미지·알림은 모두 main_only success 를 기다린다 — main_only 하나를 막으면 다 멈춘다.
+        self.assertIn(f"if: {only_upstream}", job_block(release, "main_only"))
+        for job in ("verify", "image", "notify", "promote"):
+            self.assertRegex(job_block(release, job), r"needs:\s*(main_only|\[main_only)")
+        self.assertIn(f"if: {only_upstream}", job_block(read(WORKFLOWS / "image.yml"), "build"))
+        e2e = read(WORKFLOWS / "e2e.yml")
+        self.assertIn(f"if: {only_upstream} || github.event_name == 'workflow_dispatch'", job_block(e2e, "gate"))
+        self.assertIn(only_upstream, job_block(e2e, "notify"))
+
+    def test_pr_check_also_judges_the_merge_queue(self) -> None:
+        on = re.search(r"(?ms)^on:\n(.*?)(?=^\S)", read(WORKFLOWS / "pr-check.yml"))
+        assert on
+        self.assertRegex(on.group(1), r"(?m)^  merge_group:")
+
     def test_image_is_only_built_from_main_or_by_hand(self) -> None:
         on = re.search(r"(?ms)^on:\n(.*?)(?=^\S)", read(WORKFLOWS / "image.yml"))
         assert on
