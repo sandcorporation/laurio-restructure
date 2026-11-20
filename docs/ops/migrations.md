@@ -29,7 +29,7 @@ cd backend && uv run python ../scripts/ci/migration_compat.py --base origin/main
 
 **예외 표식은 없다.** 되돌리기가 늘 옛 코드를 새 스키마 위에 올리므로, 「이번만 호환되지 않음」을 허락하면
 그 배포는 되돌릴 수 없다. 옛 `# ROLLING-DEPLOY-SAFE:` 주석은 기록으로만 남고 검사가 읽지 않는다.
-`deploy.sh` 의 `ROLLING-DEPLOY-UNSAFE` 길(넷을 내리고 올림)도 검사가 표식을 보지 않아 닿지 않는다.
+`deploy.sh` 의 `ROLLING-DEPLOY-UNSAFE` 길(넷을 내리고 올림)은 닿지 않아 지웠다(#1092).
 
 ## 두 단계 — 코드 먼저, 정리는 다음 배포
 

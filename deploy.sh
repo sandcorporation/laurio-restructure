@@ -153,12 +153,6 @@ PLAN_FILE=".jenkins-${TARGET}-plan"
 # 것이므로 이 저장소만 예외로 둔다.
 GIT="git -c safe.directory=$PWD"
 
-# 뒤로 호환되지 않는 마이그레이션의 표식(ADR-0053). 파일 어디든 이 모양의 주석 한 줄이면
-# 그 마이그레이션이 든 배포는 겹쳐 바꾸지 않는다. 지금은 닿지 않는 길이다 — PR 검사
-# (`scripts/ci/migration_compat.py`, #1091)가 표식과 상관없이 호환되지 않는 마이그레이션을 거절해
-# 그런 파일이 main 에 들어오지 않고, 표식을 단 파일도 없다.
-UNSAFE_MIGRATION_MARKER='^[[:space:]]*#[[:space:]]*ROLLING-DEPLOY-UNSAFE:'
-
 log() { echo "[deploy:${TARGET}] $*"; }
 
 # 지금 compose 에 없는 프로세스를 걷는다 — `celery-scoring`(#582~#583 의 채점 워커)·`grader`(#584)·
@@ -602,36 +596,23 @@ cmd_plan() {
   # 위에서 돈다** — 그래서 마이그레이션은 뒤로 호환되게 쓴다(ADR-0053: 추가는 그대로,
   # 삭제·이름 바꾸기·NOT NULL 은 다음 배포로 나눈다 — docs/ops/migrations.md). PR 검사
   # `scripts/ci/migration_compat.py`(#1091)가 base 코드와 호환되지 않는 마이그레이션을 거절한다.
-  # `# ROLLING-DEPLOY-UNSAFE: <이유>` 표식이 배포 범위에 있으면 예전처럼 넷을 내리고
-  # 올리는 길은 남아 있지만, 그 검사가 표식을 보지 않아 지금은 닿지 않는다.
+  # 예전의 「뒤로 호환되지 않음」 표식 길(넷을 내리고 올림)은 지웠다(#1092) — 그 검사에는 예외가
+  # 없어 닿지 않았고, 자동 되돌리기도 늘 옛 코드를 새 스키마 위에 올린다.
   #
   # 예전에는 **새 마이그레이션이 든 배포 전부가** 내리고 올렸다. 그 창이 공개 앱 재시도
   # 예산(약 15.8초)보다 길어 `/contests` 가 500 을 냈다(2026-10-02 prod, `0014_connected_apps`
   # — GlitchTip 75·83).
   #
-  # 직전 배포 표식이 없으면 범위를 몰라 표식을 찾을 수 없다. 풀러를 바꾸는 배포는 위에서
+  # 직전 배포 표식이 없으면 범위를 모른다. 풀러를 바꾸는 배포는 위에서
   # 넷을 먼저 내리므로 겹칠 옛 컨테이너가 없고, 없는 컨테이너도 겹칠 대상이 없다.
   MIGRATIONS=false
   if [ "$EVERYTHING" = true ] || touched '^backend/[^/]+/migrations/'; then
     MIGRATIONS=true
   fi
-  UNSAFE_MIGRATIONS=""
-  if [ "$EVERYTHING" = false ]; then
-    for f in $(grep -E '^backend/[^/]+/migrations/[^/]+\.py$' "$CHANGED_FILE" || true); do
-      # 지워진 파일(배포 범위 안에서 사라진 것)은 볼 것이 없다.
-      [ -f "$f" ] || continue
-      if grep -qE "$UNSAFE_MIGRATION_MARKER" "$f"; then
-        UNSAFE_MIGRATIONS="$UNSAFE_MIGRATIONS $f"
-      fi
-    done
-  fi
-
   ROLLING_BACKEND=true
   ROLLING_REASON=""
   if [ "$EVERYTHING" = true ]; then
-    ROLLING_BACKEND=false; ROLLING_REASON="직전 배포 표식이 없다(범위를 몰라 뒤로 호환되지 않는 마이그레이션을 찾을 수 없다)"
-  elif [ -n "$UNSAFE_MIGRATIONS" ]; then
-    ROLLING_BACKEND=false; ROLLING_REASON="뒤로 호환되지 않는 마이그레이션(ROLLING-DEPLOY-UNSAFE):${UNSAFE_MIGRATIONS}"
+    ROLLING_BACKEND=false; ROLLING_REASON="직전 배포 표식이 없다(범위를 모른다)"
   elif [ "$BUILD_PGBOUNCER" = true ]; then
     ROLLING_BACKEND=false; ROLLING_REASON="풀러를 바꾼다"
   elif missing backend || missing events; then
