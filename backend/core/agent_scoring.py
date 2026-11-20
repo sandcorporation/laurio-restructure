@@ -39,15 +39,17 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import PurePosixPath
-from typing import Literal, TypedDict
+from typing import TYPE_CHECKING, Literal, TypedDict
 
 # 실행기(`agent-grader`)의 계약은 `scoring.agent_runner` 가 `core.agent_ports` 에 등록한다(#1085) — 그 파일은 이미지가 홀로
 # COPY 하는 표준 라이브러리 모듈이다(agent-grader.Dockerfile·deploy.sh 가 경로를 안다).
 from core.agent_ports import RunResult, RunSpec, Vendor, agent_grader
 from core.agent_refusal_alert import report_account_refusal
 from core.agent_run_tokens import issue_run_token, run_usage
-from policies.runtime_settings import VENDOR_ANTHROPIC, scoring_vendor, setting_value
-from submissions.models import Submission
+from core.runtime_settings_port import VENDOR_ANTHROPIC, scoring_vendor, setting_value
+
+if TYPE_CHECKING:
+    from submissions.models import Submission
 
 #: JSON 값 — 구조화 출력·스키마는 모양을 정적으로 모른다(쓰기 전에 좁힌다).
 JSON = dict[str, "JSON"] | list["JSON"] | str | int | float | bool | None

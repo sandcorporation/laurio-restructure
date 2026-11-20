@@ -39,7 +39,7 @@ from django.utils import timezone
 from core.agent_ports import ModelPrice, price_for
 from core.clock import Clock
 from core.models import AgentRunToken
-from policies.runtime_settings import ScoringVendor, agent_scoring_daily_limit_usd
+from core.runtime_settings_port import ScoringVendor, agent_scoring_daily_limit_usd
 
 #: 실행 하나의 기본 예산(USD) — 공모전 3 실측 1건 $0.09~0.21 의 다섯 배쯤.
 DEFAULT_RUN_BUDGET_USD = Decimal("1")
