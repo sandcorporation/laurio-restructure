@@ -5,7 +5,8 @@
 #   checks  `sub-checks.sh` — Django check·check --deploy·마이그레이션 호환(#1091)·pytest·생성물·문서 검사·단위 시험·타입 검사
 #           pytest(#1088)는 PR 이면 바뀐 앱과 그 앱에 기대는 앱의 시험만, 병합 대기열은 전부를 조각 나란히로(`pytest_plan.py`)
 #   guard   (PR 에서는 건너뜀, 병합 대기열에서만 — #1015·#1090) 세 앱 prod 이미지(amd64)를 여기서 굽고 `deploy-guard.sh` — 설정 없이는 죽고, 완전한 설정으로는 뜬다
-#   e2e     (#1089) PR 은 바뀐 앱의 시험만, 병합 대기열은 전부를 조각 나란히로(`e2e_plan.py`)
+#   e2e     (#1089) PR 에서만 — 바뀐 앱의 시험을 조각 나란히로(`e2e_plan.py`), 「결과」 필수. 병합 대기열은 돌지 않는다(#1111) —
+#           e2e 전부는 매시 main 의 `e2e.yml` 이 돈다
 #   celery  `celery-broker.sh` — 실제 Redis 브로커로 beat → worker
 #   agent-grader  `agent-grader-check.sh` — 에이전트 채점 실행기 이미지를 arm64 실행기에서 굽고, 운영과 같은 격리 설정으로
 #           가짜 벤더(`llm-proxy` 자리)에 Claude Code·Codex 를 한 번씩 돌린다(#999). 진짜 벤더·키 없음
@@ -60,7 +61,7 @@ jobs:
       pytest_all: ${{ steps.plan.outputs.pytest_all }}
       # PR 에서 뺄 잡을 고르는 한 곳(#1015) — PR 이 아닐 때만 '1', 곧 병합 대기열에서 돈다(#1090: 배포 전 amd64 부팅 가드는 대기열 몫).
       guard: ${{ github.event_name != 'pull_request' && '1' || '' }}
-      # e2e(#1089) — PR 은 바뀐 앱의 시험만, 병합 대기열은 전부를 조각 나란히로(e2e_plan.py).
+      # e2e(#1089) — PR 에서만 바뀐 앱의 시험을 조각 나란히로(e2e_plan.py). 대기열은 돌지 않는다(#1111).
       e2e: ${{ steps.plan.outputs.e2e }}
       e2e_matrix: ${{ steps.plan.outputs.e2e_matrix }}
     steps:
@@ -96,7 +97,7 @@ jobs:
           if [ "$tests" = 1 ]; then
             case "${{ github.event_name }}" in
               pull_request) e2e_plan=$(python3 scripts/ci/e2e_plan.py --base "$base") ;;
-              merge_group) e2e_plan=$(python3 scripts/ci/e2e_plan.py --all) ;;
+              # 병합 대기열은 e2e 를 돌지 않는다(#1111, 대표 결정 2026-11-20) — PR 에서 바뀐 앱의 것을 돌았고, 전부는 매시 e2e.yml
               *) e2e_plan="" ;;
             esac
             if [ -n "$e2e_plan" ]; then

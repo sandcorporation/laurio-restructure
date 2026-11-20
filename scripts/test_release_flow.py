@@ -118,7 +118,26 @@ class ReleaseFlowTest(unittest.TestCase):
         for job in ("image", "cache", "cache-node", "notify", "promote"):
             self.assertRegex(job_block(release, job), r"needs:\s*(main_only|\[main_only)")
         self.assertIn(f"if: {only_upstream}", job_block(read(WORKFLOWS / "image.yml"), "build"))
-        self.assertFalse((WORKFLOWS / "e2e.yml").exists(), "e2e 는 PR 검사의 e2e 잡이 돈다(#1089) — 매시 cron 은 없다")
+        # 매시 e2e(#1111): 실제 실패 이슈는 본 저장소에서만 — 포크는 알림 시험만
+        self.assertIn("github.repository == 'sandcorporation/laurio'", job_block(read(WORKFLOWS / "e2e.yml"), "notify"))
+
+    def test_e2e_runs_on_prs_and_hourly_on_main_not_in_the_merge_queue(self) -> None:
+        # 대표 결정(#1111): PR 은 바뀐 앱의 e2e 가 「결과」 필수, 대기열은 e2e 없음, 전부는 매시 main
+        pr = read(WORKFLOWS / "pr-check.yml")
+        plan = job_block(pr, "plan")
+        self.assertIn("pull_request) e2e_plan=$(python3 scripts/ci/e2e_plan.py --base", plan)
+        self.assertNotIn("merge_group) e2e_plan", plan)
+        self.assertIn('"e2e:$E2E:$want_e2e"', job_block(pr, "result"))
+        hourly = read(WORKFLOWS / "e2e.yml")
+        on = re.search(r"(?ms)^on:\n(.*?)(?=^\S)", hourly)
+        assert on
+        self.assertRegex(on.group(1), r"(?m)^  schedule:")
+        self.assertRegex(on.group(1), r"(?m)^  workflow_dispatch:")
+        self.assertIn("e2e_plan.py --all", job_block(hourly, "gate"))
+        self.assertIn("CODEMIT_E2E_PLAYWRIGHT_IMAGE: 1", job_block(hourly, "e2e"))
+        # 조율자 점검(stall-check.sh)이 이 제목으로 찾는다 — 바꾸지 않는다
+        self.assertIn('title="e2e 실패 — main 의 화면이 깨졌을 수 있다"', job_block(hourly, "notify"))
+        self.assertNotIn("actions/cache/save", hourly, "캐시 저장은 release 에서만")
 
     def test_pr_check_also_judges_the_merge_queue(self) -> None:
         on = re.search(r"(?ms)^on:\n(.*?)(?=^\S)", read(WORKFLOWS / "pr-check.yml"))

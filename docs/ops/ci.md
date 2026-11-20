@@ -17,7 +17,7 @@ PR → pr-check.yml(바뀐 앱만, 「결과」 초록) → 병합 대기열 →
   amd64 로 굽고 `deploy-guard.sh`, `CODEMIT_GUARD_IMAGE`)·`celery`(`celery-broker.sh`)·`agent-grader`(`agent-grader-check.sh` — `ubuntu-24.04-arm`
   에서 에이전트 채점 실행기 이미지를 굽고 운영과 같은 격리 설정(seccomp 프로필 포함)으로 Codex 샌드박스 한 줄과 가짜 벤더에 두 CLI 를 돌린다. 실행기의 AppArmor 사용자 네임스페이스 제한은 끄고 돈다 — 운영 호스트에는 AppArmor 가 없다, #999) →
   `결과`(모두 초록이면 초록 — 필수 검사로 걸 이름). **병합 기준은 「결과」 잡이다** — `gh pr checks <PR>`·`gh run watch` 로 본다.
-  **PR 에서는 `guard` 를 건너뛴다**(#1015, 줄 서기 단축). **`e2e` 는 PR 에서는 바뀐 앱의 시험만, 병합 대기열(`merge_group`)에서는 전부를 조각 나란히로 돈다**(#1089).
+  **PR 에서는 `guard` 를 건너뛴다**(#1015, 줄 서기 단축). **`e2e` 는 PR 에서만 바뀐 앱의 시험을 조각 나란히로 돌고 「결과」에 필수다. 병합 대기열(`merge_group`)은 e2e 를 돌지 않고, 전부는 매시 main 의 `e2e.yml` 이 돈다**(#1089·#1111).
   `guard` 는 `plan` 잡 출력 `guard`(PR 이벤트면 빔)를 `if` 가 본다. 잡 이름·`결과` 는 그대로다.
   - **`결과` 는 skipped 를 통과로 세지 않는다**: plan 이 시험 없음(문서만)이면 나머지가 skipped, 아니면 checks·celery 는 success, guard 는 PR 이 아닐 때 success(PR 에서만 skipped)여야 통과다. 조건을 잘못 걸어 필수 잡이 통째로 건너뛰어도 초록이던 구멍을 막는다.
   - **PR 검사 잡**: plan · checks(static·pytest 조각·web) · celery · agent-grader · 결과(guard 는 skipped). 어느 잡이 도는지는 `changed.sh` 가 바뀐 경로로 고른다(#1082):
@@ -31,8 +31,16 @@ PR → pr-check.yml(바뀐 앱만, 「결과」 초록) → 병합 대기열 →
 
     `결과` 는 위 표대로 돌아야 할 잡이 success, 건너뛰어야 할 잡이 skipped 일 때만 초록이다.
     경로 표는 `scripts/ci/paths.py` 하나다 — `changed.sh`·`e2e_plan.py`·`pytest_plan.py` 가 모두 이것을 읽는다. `scripts/test_changed_paths.py` 가 고정한다.
-  - **병합 대기열 잡**(`merge_group`): 경로와 상관없이 전부(pytest 6조각·e2e 전부) 돌고 위에 **guard(frontend·operator·classroom)** 가 더해진다 — 배포 가능 판정은 여기 한 번이다(#1090).
-  - **e2e 는 PR 검사의 `e2e` 잡이다**(#1089, 매시 cron `e2e.yml` 은 지웠다). 시험은 `frontend/e2e/<앱>/`(공개)·`frontend/e2e/operator/<앱>/`·`frontend/e2e/classroom/` 에 두고 **폴더 이름이 앱 표시다** — `backend/app_deps.toml` 의 앱 이름이거나 `frontend`(백엔드 앱이 없는 화면·BFF 시험). `plan` 잡이 `scripts/ci/e2e_plan.py` 로 조각을 낸다: PR 은 바뀐 백엔드 앱(`app_deps.py affected`)의 폴더, 앞단이 바뀌면 그 앱 시험 전부, 시험 폴더만 바뀌면 그 폴더만, 공유 도우미·설정·워크플로·그 밖은 전부. 병합 대기열은 늘 전부. 시험 파일을 시험 수 40개 안팎의 조각에 나눠 담고 조각마다 실행기 하나가 스택을 따로 굽는다(`CODEMIT_E2E_PATHS`, `e2e.sh`). 병합 기준 `결과` 가 `e2e` 를 본다(조각이 있으면 success). 이미지 층 캐시는 release 의 `cache` 잡이 저장하고 PR 검사의 잡은 모두 복원만 한다(#1090).
+  - **병합 대기열 잡**(`merge_group`): 경로와 상관없이 전부(pytest 6조각 — e2e 는 빼고, #1111) 돌고 위에 **guard(frontend·operator·classroom)** 가 더해진다 — 배포 가능 판정은 여기 한 번이다(#1090).
+  - **e2e 는 PR 검사의 `e2e` 잡(바뀐 앱, 필수)과 매시 main 의 `e2e.yml`(전부)이다**(#1089·#1111). 시험은 `frontend/e2e/<앱>/`(공개)·`frontend/e2e/operator/<앱>/`·`frontend/e2e/classroom/` 에 두고 **폴더 이름이 앱 표시다** — `backend/app_deps.toml` 의 앱 이름이거나 `frontend`(백엔드 앱이 없는 화면·BFF 시험). `plan` 잡이 `scripts/ci/e2e_plan.py` 로 조각을 낸다: PR 은 바뀐 백엔드 앱(`app_deps.py affected`)의 폴더, 앞단이 바뀌면 그 앱 시험 전부, 시험 폴더만 바뀌면 그 폴더만, 공유 도우미·설정·워크플로·그 밖은 전부. 매시 `e2e.yml` 은 늘 전부(`--all`). 시험 파일을 시험 수 40개 안팎의 조각에 나눠 담고 조각마다 실행기 하나가 스택을 따로 굽는다(`CODEMIT_E2E_PATHS`, `e2e.sh`). 병합 기준 `결과` 가 `e2e` 를 본다(조각이 있으면 success). 이미지 층 캐시는 release 의 `cache` 잡이 저장하고 PR 검사의 잡은 모두 복원만 한다(#1090).
+  - **대기열에서 e2e 를 뺀 까닭(#1111, 대표 결정 2026-11-20)**: 대기열 시간의 대부분이 e2e 조각(4:20~9:29)이었는데, CI 의 e2e 가 11일 동안
+    막은 실제 버그는 0, 헛실패는 5였다. 대가: 각자 초록인 두 PR 이 함께 깨뜨린 화면은 대기열이 못 잡고 최대 한 시간 뒤 매시 e2e 가 잡는다.
+  - **매시 `e2e.yml`**: 본 저장소의 것(#1015·#1020)을 되살린 꼴 — `gate` 가 직전 schedule 실행이 같은 sha 를 초록으로 돌았으면 건너뛰고,
+    조각은 `e2e_plan.py --all`, Playwright 는 공식 이미지(#1109). main 에서 붉으면 고정 제목 이슈 「e2e 실패 — main 의 화면이 깨졌을 수 있다」
+    (라벨 `ci-red`, `scripts/ci/ci-issue.sh`)를 열거나 댓글을 달고, 초록이면 「복구됨」 댓글을 달고 닫는다. **제목을 바꾸지 않는다** — 조율자
+    점검(`stall-check.sh`)이 이 제목으로 찾는다. 실제 실패 이슈는 본 저장소에서만 만든다(notify 잡의 `github.repository` 조건, 포크는 알림 시험만).
+    알림 시험: `gh workflow run e2e.yml --ref main -f simulate=fail`(새 이슈, 한 번 더면 댓글)·`-f simulate=ok`(복구·닫기) — 제목에 「(알림 시험)」.
+  - **필수 검사 이름은 그대로 「결과」 하나다** — e2e 는 「결과」가 PR 에서 집계하고, 대기열에서는 plan 이 조각을 내지 않아 `skipped` 를 기대한다.
   - **pytest 는 PR 에서는 바뀐 앱과 그 앱에 기대는 앱의 시험만, 병합 대기열에서는 전부를 조각 나란히로 돈다**(#1088). `plan` 잡이 `scripts/ci/pytest_plan.py` 로 고른다:
     `backend/<앱>/…` → `app_deps.py affected` 가 고른 앱(바뀐 앱·그 앱을 쓰는·읽는 앱·그 앱들이 꽂힌 앱)의 `<앱>/tests/`, `backend/tests/**/test_*.py` 만 바뀌면 그 파일만,
     그 밖의 backend(`config/`·`conftest.py`·시험 도우미·`pyproject.toml`·`uv.lock`)·`docker/`·`scripts/`·`.github/`·루트는 전부. 앱 사이 시험(`tests/integration/`)은
