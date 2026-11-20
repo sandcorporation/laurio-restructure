@@ -15,6 +15,17 @@ from .adapters import PayoutError, get_adapter
 from .models import Payout
 from .progress import advance
 from .services import get_or_create_payout
+from .targets import PayoutTarget
+
+
+def share_payout_target(share: DistributionShare) -> PayoutTarget:
+    """이 몫을 지급 사유로 하는 Payout 생성에 필요한 것 (#129) — `DistributionShare.payout_target` 에서 옮겼다(#1086)."""
+
+    return PayoutTarget(
+        fk_name="distribution_share",
+        lock=lambda: DistributionShare.objects.select_for_update().get(pk=share.pk),
+        prize_amount_of=lambda locked: locked.amount,
+    )
 
 
 def _attempt_share_payout(
@@ -32,7 +43,7 @@ def _attempt_share_payout(
     수만큼 정책 조회가 나간다.
     """
 
-    payout = get_or_create_payout(share.payout_target())
+    payout = get_or_create_payout(share_payout_target(share))
 
     if payout.status != Payout.Status.REQUESTED:
         # 이미 다른 경로(웹훅 등)로 확정·실패되어 있다 — 그대로 지나간다.
