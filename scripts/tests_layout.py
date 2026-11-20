@@ -337,6 +337,31 @@ def plan() -> dict[str, Placement]:
     }
 
 
+def touched() -> dict[str, set[str] | None]:
+    """시험 파일(backend 기준 경로) → 닿는 앱(import·주소, 자리를 정한 것과 같은 규칙). pytest 선택 실행(#1088)이 읽는다.
+
+    None 은 「다 안 보인다」 — 전체 주소(config)에 기대거나, 정적으로 안 보이는 주소를 불러 자리를 손으로 정한
+    파일(OVERRIDES)이다. 고르는 쪽은 None 을 늘 돌린다.
+    """
+
+    table = load_table()
+    routes = route_table()
+    files = _module_files()
+    infos = {stem: scan(p, frozenset(table)) for stem, p in files.items()}
+    out: dict[str, set[str] | None] = {}
+    for p in files.values():
+        if not p.name.startswith("test_"):
+            continue
+        rel = p.relative_to(BACKEND).as_posix()
+        if p.name in OVERRIDES:
+            out[rel] = None
+            continue
+        apps, urls, config = reach(p.stem, None, infos, set())
+        uapps, _ = url_apps(urls, routes)
+        out[rel] = None if config or "config" in uapps else apps | uapps
+    return out
+
+
 def target(dest: str, name: str) -> Path:
     if dest == STAY:
         return TESTS / name
