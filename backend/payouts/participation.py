@@ -10,6 +10,9 @@ from handovers.models import Handover
 from .models import Payout, TaxIdentity
 from .progress import HoldKind, assert_covers_all_kinds, hold_of
 
+#: 「다음 행동」 목록이 `ContestSubmission` 에서 함께 당길 관계 — `payout_action` 이 보는 인수 행(#1102)
+NEXT_ACTION_RELATIONS = ("contest__award__handover",)
+
 
 # Hold → NextAction 번역표 (#130). 판정은 `payouts.progress.hold_of` 가 한다 — 여기서
 # 원시 상태를 다시 읽으면 세 렌더러가 갈린다. 표는 HoldKind 전체를 덮어야 한다(로드 시 검사).

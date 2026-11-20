@@ -83,7 +83,16 @@ from verification.models import Verification
 
 from .images import ALLOWED_CONTEST_IMAGE_CONTENT_TYPES
 from .models import Contest, ContestSubmission, Evidence, Requirement, RequirementResponse
-from .ports import bonus_scores, is_submission_awarded, ranked_reviews, save_bonus_score, upload_source_over_budget
+from .ports import (
+    NEXT_ACTION_RELATIONS,
+    OWN_SCORE_RELATIONS,
+    bonus_scores,
+    is_submission_awarded,
+    ranked_reviews,
+    related,
+    save_bonus_score,
+    upload_source_over_budget,
+)
 from .submission_participation import next_action_for
 from .submission_retention import demo_video_destroy_at
 from .submission_schemas import (
@@ -1125,9 +1134,7 @@ def get_my_submission(request: HttpRequest, contest_id: int):
     # 이의·Award·Handover·본인확인) 생긴다.
     submission = (
         ContestSubmission.objects.filter(contest=contest, developer=developer)
-        .select_related(
-            "contest", "score", "appeal", "contest__award__handover", "developer__user__verification"
-        )
+        .select_related("contest", "developer__user__verification", *related(NEXT_ACTION_RELATIONS))
         .first()
         if developer is not None
         else None
@@ -1187,9 +1194,7 @@ def list_my_participation(request: HttpRequest, after: str | None = None):
     # verification`을 걸으면 JOIN 대신 행마다 왕복이 난다.
     submissions = (
         ContestSubmission.objects.filter(developer=profile)
-        .select_related(
-            "contest", "score", "appeal", "contest__award__handover", "developer__user__verification"
-        )
+        .select_related("contest", "developer__user__verification", *related(NEXT_ACTION_RELATIONS))
         .order_by("-created_at", "-id")
     )
 
@@ -1263,7 +1268,7 @@ def _get_owned_submission(request: HttpRequest, submission_id: int) -> ContestSu
         # `score.submission.contest` 와 `.appeal` 을 이 조회에서 함께 끌어온다 —
         # `OwnScoreOut` 의 이의 창 판정이 그것을 본다.
         submission = ContestSubmission.objects.select_related(
-            "developer", "score", "contest", "appeal", "quality_review"
+            "developer", "contest", *related(OWN_SCORE_RELATIONS)
         ).get(id=submission_id)
     except ContestSubmission.DoesNotExist as exc:
         raise HttpError(404, "제출물을 찾을 수 없습니다.") from exc
@@ -1290,11 +1295,7 @@ def get_submission(request: HttpRequest, submission_id: int):
         # 적는다 — 뒤엣것이 앞엣것을 포함하면서 본인확인 상태까지 한 JOIN으로
         # 당긴다.
         submission = ContestSubmission.objects.select_related(
-            "contest__sponsor",
-            "developer__user__verification",
-            "score",
-            "appeal",
-            "contest__award__handover",
+            "contest__sponsor", "developer__user__verification", *related(NEXT_ACTION_RELATIONS)
         ).get(id=submission_id)
     except ContestSubmission.DoesNotExist as exc:
         raise HttpError(404, "제출물을 찾을 수 없습니다.") from exc

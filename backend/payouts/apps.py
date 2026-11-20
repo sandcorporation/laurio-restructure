@@ -19,6 +19,12 @@ class PayoutsConfig(AppConfig):
 
         PAYOUT_ACTION.register(payout_action)
         SPONSORED_CONTEST_QUERYSET.register(sponsored_contest_queryset)
+        # 지급 단계(`payout_action`)가 보는 인수 행을 「다음 행동」 목록이 함께 당긴다(#1102)
+        from contests.ports import NEXT_ACTION_RELATIONS
+
+        from .participation import NEXT_ACTION_RELATIONS as PAYOUT_RELATIONS
+
+        NEXT_ACTION_RELATIONS.register("payouts", PAYOUT_RELATIONS)
 
         from django.core.checks import register
 

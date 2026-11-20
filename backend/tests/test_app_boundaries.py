@@ -7,8 +7,8 @@ import 는 애초에 컴파일되지 않는다. 한 프로세스 안에서는 `f
 
 ## 표가 말하는 것
 
-앱마다 `group`(shared·contest·classroom)과 세 칸 — `uses`(부르는 아래 앱), `plugs`(제 구현을 올리는 아래 앱 —
-등록 자리·시그널·설정 dotted path), `reads`(Django 역관계로 읽는 위 앱의 행, 갚을 빚). 세는 법은
+앱마다 `group`(shared·contest·classroom)과 두 칸 — `uses`(부르는 아래 앱), `plugs`(제 구현을 올리는 아래 앱 —
+등록 자리·시그널·설정 dotted path). 아래 앱이 Django 역관계로 위 앱의 행을 걷는 ORM 경로는 받을 칸이 없다(#1102). 세는 법은
 `scripts/app_deps.py` 머리말이 들고 있다. 이 시험은 그 분석기에 ORM 경로(모델 관계가 있어야 걷는다)를 더해 맞댄다.
 
 - 코드의 결합이 표에 없으면 빨강, 표의 선언이 코드에 없으면 빨강(선언은 좁게 — 선택 실행 #1088 이 이 표만 읽는다).
@@ -207,7 +207,7 @@ def test_the_shared_layer_cannot_declare_a_feature_app():
 
 
 def test_classroom_and_the_contest_family_cannot_declare_each_other_in_any_column():
-    for column in ("uses", "plugs", "reads"):
+    for column in ("uses", "plugs"):
         table = {**TABLE, "classroom": D("classroom", **{column: frozenset({"contests"})})}
         assert any("강의실과 공모전" in p for p in deps.problems(table, [], [], set(), orm_counted=False)), column
 
@@ -222,13 +222,20 @@ def test_an_installed_app_missing_from_the_table_is_red():
     assert any("newapp: 표에 없다" in p for p in deps.problems(TABLE, [], [], {"newapp"}, orm_counted=False))
 
 
-def test_an_orm_path_up_the_layers_must_be_declared_as_reads():
-    """아래 앱이 역관계로 위 앱의 행을 걷는다 — uses 로는 순환이 되고, 안 적으면 선택 실행이 놓친다."""
+def test_an_orm_path_up_the_layers_is_red_and_has_no_column_to_hide_in():
+    """아래 앱이 역관계로 위 앱의 행을 걷는다 — 안 적으면 선언 밖, uses 에 적으면 순환이다(#1102). 위 앱이 관계를 올린다."""
 
     orm = [deps.Coupling("contests", "scoring", "orm", "contests/x.py", 3, "ORM 경로 score")]
-    assert any("contests → scoring" in p for p in _problems("", "contests", orm=orm))
-    table = {**TABLE, "contests": D("contest", uses=TABLE["contests"].uses, reads=frozenset({"scoring"}))}
-    assert not _problems("", "contests", table=table, orm=orm)
+    red = _problems("", "contests", orm=orm)
+    assert any("contests → scoring" in p and "NEXT_ACTION_RELATIONS" in p for p in red)
+    table = {**TABLE, "contests": D("contest", uses=TABLE["contests"].uses | {"scoring"}, plugs=TABLE["contests"].plugs)}
+    assert any(p.startswith("순환:") and "scoring" in p for p in _problems("", "contests", table=table, orm=orm))
+    with pytest.raises(TypeError):
+        D("contest", reads=frozenset({"scoring"}))  # type: ignore[call-arg]
+
+
+def test_the_table_has_no_reads_column():
+    assert all(set(entry) <= {"group", "uses", "plugs"} for entry in deps.tomllib.loads(deps.TABLE.read_text()).values())
 
 
 def test_orm_paths_are_found_in_lookups_and_relation_arguments():
@@ -282,11 +289,6 @@ def test_a_plugged_app_reruns_alone_and_does_not_spread_to_its_users():
     table = {**TABLE, "scoring": D("contest", uses=TABLE["scoring"].uses, plugs=frozenset({"core"}))}
     picked = deps.affected(["backend/scoring/services.py"], table)
     assert "core" in picked and "accounts" not in picked
-
-
-def test_a_change_in_a_read_app_reruns_the_reader():
-    table = {**TABLE, "contests": D("contest", uses=TABLE["contests"].uses, reads=frozenset({"scoring"}))}
-    assert "contests" in deps.affected(["backend/scoring/models.py"], table)
 
 
 def test_project_wide_files_rerun_everything_and_frontend_reruns_nothing():

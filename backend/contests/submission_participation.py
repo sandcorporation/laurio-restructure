@@ -33,7 +33,7 @@ from django.db import models
 from core.clock import Clock
 
 from .models import Contest
-from .ports import PAYOUT_ACTION  # payouts.apps 가 올린다(#1086)
+from .ports import APPEAL_STATE, AWARDED_SUBMISSION_ID, IS_SCORED, PAYOUT_ACTION  # 위 앱이 올린다(#1086, #1102)
 
 
 class NextAction(models.TextChoices):
@@ -101,6 +101,8 @@ def next_action_for(submission) -> str:
 
     호출부는 `Submission` 을 관련 객체와 함께 미리 가져와야 한다 — 이 함수는
     행마다 새 조회를 내지 않는다(목록이 N+1 이 되면 참가가 쌓일수록 느려진다).
+    위 앱(채점·이의·선정·지급)의 관계는 그 앱이 `ports.NEXT_ACTION_RELATIONS` 에 올린
+    것을 `select_related(*related(NEXT_ACTION_RELATIONS))` 로 당긴다(#1102).
     마감 전 분기가 보는 `developer__user__verification` 도 같은 규율이다 —
     호출부가 select_related 로 미리 당겨 둬야 한다(`contests.submission_api`의
     `get_my_submission`·`get_submission`·`list_my_participation` 참고).
@@ -132,19 +134,18 @@ def next_action_for(submission) -> str:
             return NextAction.NEEDS_REVERIFICATION
         return NextAction.CAN_EDIT_SUBMISSION
 
-    if not hasattr(submission, "score"):
+    if not IS_SCORED.get()(submission):
         from .scoring_hold import is_size_held
 
         if is_size_held(submission):
-            appeal = getattr(submission, "appeal", None)
-            if appeal is not None and appeal.status == appeal.Status.PENDING:
+            if APPEAL_STATE.get()(submission) == "pending":
                 return NextAction.AWAITING_APPEAL_RULING
             return NextAction.SCORING_HELD_SIZE
         return NextAction.AWAITING_SCORING
 
     # 채점이 끝났다 — 이의가 여기서 갈린다.
-    appeal = getattr(submission, "appeal", None)
-    if appeal is not None and appeal.status == appeal.Status.PENDING:
+    appeal = APPEAL_STATE.get()(submission)
+    if appeal == "pending":
         return NextAction.AWAITING_APPEAL_RULING
 
     payout_action = PAYOUT_ACTION.get()(submission)
@@ -157,7 +158,7 @@ def next_action_for(submission) -> str:
     # 제외한다**(#417, ADR-0048) — `appeals.api.create_appeal`이 `contest.
     # is_free`를 보고 404로 거절하므로, 조건을 두 벌로 쓰지 않으려면 여기도
     # 같은 예외를 져야 한다.
-    if not contest.is_free and appeal is None and contest.appeal_window_open(now):
+    if not contest.is_free and appeal == "none" and contest.appeal_window_open(now):
         return NextAction.CAN_APPEAL
 
     if _is_awarded_to_someone_else(submission):
@@ -177,8 +178,8 @@ def next_action_for(submission) -> str:
 
 
 def _is_awarded_to_someone_else(submission) -> bool:
-    award = getattr(submission.contest, "award", None)
-    return award is not None and award.submission_id != submission.id
+    awarded_id = AWARDED_SUBMISSION_ID.get()(submission.contest)
+    return awarded_id is not None and awarded_id != submission.id
 
 
 def _owner_identity_is_verified(submission) -> bool:

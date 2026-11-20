@@ -248,17 +248,19 @@ scripts/test.sh backend tests/test_x.py   # db 하나만 띄우고(스크립트�
 ```
 
 **앱 경계는 선언 표와 테스트가 지킨다**(#1086, 처음은 #269·ADR-0037). `backend/app_deps.toml` 이 앱마다
-`group`(shared·contest·classroom)과 세 칸을 적는다 — `uses`(부르는 아래 앱), `plugs`(제 구현을 올리는 아래 앱:
+`group`(shared·contest·classroom)과 두 칸을 적는다 — `uses`(부르는 아래 앱), `plugs`(제 구현을 올리는 아래 앱:
 `Slot`·`Slots.register`·`register_*()`·시그널 `connect`·`@receiver`·`sender=`, 아래 앱이 읽는 설정의 dotted path 가
-이 앱을 가리키는 것), `reads`(Django 역관계로 읽는 **위** 앱의 행 — `select_related("score")`·
-`user__sponsor_profile__contests__…`). `tests/test_app_boundaries.py` 가 `scripts/app_deps.py` 로 코드를 훑어
+이 앱을 가리키는 것). `tests/test_app_boundaries.py` 가 `scripts/app_deps.py` 로 코드를 훑어
 (import 는 함수 안까지, `"app.Model"`·다른 앱 모듈의 dotted path·celery 작업 이름 문자열, 설정 이름, ORM 경로) 표와
 맞댄다:
 
 - 코드의 결합이 표에 없으면 빨갛고, **표의 선언이 코드에 없어도 빨갛다** — 선언은 좁게 둔다.
-- `uses`·`plugs` 가 순환이면 빨갛다(둘 다 위 → 아래). `reads` 는 순환 검사에서 빼고 선택 실행에는 넣는다 — import
-  층은 한 방향이지만 데이터가 거슬러 묶인 빚이다(지금 8칸: contests 가 appeals·awards·distributions·handovers·scoring,
-  repositories 가 scoring, verification 이 contests). 늘리지 않는다.
+- `uses`·`plugs` 가 순환이면 빨갛다(둘 다 위 → 아래).
+- 아래 앱이 Django 역관계로 **위** 앱의 행을 걷는 ORM 경로(`select_related("score")`)도 빨갛다 — 적을 칸이 없다
+  (`uses` 면 순환). 위 앱이 관계 이름과 판정 함수를 아래 앱의 자리에 올린다(#1102): 「다음 행동」은
+  `contests.ports` 의 `NEXT_ACTION_RELATIONS`·`IS_SCORED`·`APPEAL_STATE`·`AWARDED_SUBMISSION_ID`, 저장소 스캔은
+  `repositories.ports.STILL_TO_SCORE`, 휴면 판정은 `verification.ports.LAST_ACTIVITY`. 관계를 같이 올려야 목록이
+  행마다 조회하지 않는다 — 쿼리 수는 `tests/integration/test_participation_query_counts.py` 가 못 박는다.
 - 공유층(`group = "shared"`)은 어느 칸으로도 기능 앱에 묶이지 않는다 — 기능 앱이 공유층 자리에 꽂는다. 강의실 ↮
   공모전 가족은 어느 칸으로도 막힌다(ADR-0037).
 - **`APP-BOUNDARY-EXCEPTION` 표식은 받지 않는다**(이유가 있어도). 마지막 표식(`accounts/middleware.py`, 공유층끼리라

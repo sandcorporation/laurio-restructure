@@ -31,7 +31,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 from django.db import transaction
-from django.db.models import F, Max
+from django.db.models import F
 from django.db.models.functions import Greatest
 
 from core.scans import ScanSpec
@@ -41,6 +41,7 @@ from accounts.signals import user_became_dormant
 from accounts.withdrawal import _transaction_basis, blocking_reasons
 
 from .models import RetainedIdentity, Verification
+from .ports import last_activity_expressions
 from .purge import purge_identity
 
 # 개인정보 유효기간제(휴면 1년 의무)는 2023년 9월 폐지되어 기간은 자율이다(ADR-0025).
@@ -74,8 +75,8 @@ def _dormant_verifications(as_of, ctx):
             last_activity_at=Greatest(
                 F("user__date_joined"),
                 F("updated_at"),
-                Max("user__sponsor_profile__contests__created_at"),
-                Max("user__developer_profile__submissions__created_at"),
+                # Sponsor 로서 만든 Contest·Developer 로서 낸 제출 — 공모전 앱이 올린다(#1102)
+                *last_activity_expressions(),
             )
         )
         .filter(last_activity_at__lte=as_of - DORMANCY_PERIOD)

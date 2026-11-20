@@ -94,8 +94,8 @@ class Integration(unittest.TestCase):
     """앱 사이 시험은 닿는 앱이 고른 앱과 겹칠 때만, 다 안 보이면 늘."""
 
     TABLE = {
-        "a": Declared(group="shared", uses=frozenset(), plugs=frozenset(), reads=frozenset()),
-        "b": Declared(group="shared", uses=frozenset(), plugs=frozenset(), reads=frozenset()),
+        "a": Declared(group="shared", uses=frozenset(), plugs=frozenset()),
+        "b": Declared(group="shared", uses=frozenset(), plugs=frozenset()),
     }
     FILES = ["a/tests/test_a.py", "b/tests/test_b.py", "tests/integration/test_ab.py", "tests/integration/test_b.py",
              "tests/integration/test_hidden.py", "tests/test_structure.py"]
