@@ -64,6 +64,7 @@ PR → pr-check.yml(바뀐 앱만, 「결과」 초록) → 병합 대기열 →
     `pr-check.yml` 의 `workflow_call` 트리거를 되살리고 promote 를 `needs: [main_only, check, image]` 로).
   - 배선은 `scripts/test_release_flow.py` 가 고정한다 — release 가 `pr-check.yml` 을 부르지 않는다, 잡 집합, promote 가 image 만 기다린다,
     cache 잡 키 = pr-check.yml 의 복원 키.
+- **워크플로 문법 검사(#1105)**: `workflow-lint.yml`(별도 파일 — pr-check.yml 자체가 파싱 안 되면 그 안의 어떤 잡도 안 뜨기 때문)이 `.github/workflows/**` 가 바뀐 PR 에서만 `scripts/ci/actionlint.sh --all` 로 actionlint(1.7.12, linux amd64 tarball 을 sha256 고정으로 내려받음)를 돌린다. 필수 검사(「결과」·ruleset)에는 넣지 않는다 — PR 에 빨강으로 보이는 것이 목적이다. `.githooks/pre-commit` 도 워크플로가 staged 일 때 같은 스크립트를 건다(로컬에 actionlint 가 있을 때). 로컬: `scripts/ci/actionlint.sh --all`.
 - **아래에서 「PR 검사(Jenkins)」·macos·e2e 태그를 말하는 표와 글은 꺼진 검사의 기록이다.** Jenkins 이미지 빌드 비상 길도 제거했다. 검사와 이미지 빌드는 GitHub Actions만 수행한다.
 
 ### Actions 의 캐시 — main(release 의 cache 잡)이 저장하고 PR·대기열은 복원만 한다(#932·#1090)
