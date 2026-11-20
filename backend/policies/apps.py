@@ -12,3 +12,9 @@ class PoliciesConfig(AppConfig):
         from policies import runtime_settings
 
         RUNTIME_SETTINGS.register(runtime_settings)
+
+        # 스캔 실행 하나 = 정책 스코프 하나(#145) — `core.scans` 가 import 없이 연다(#1086, `core.ops_ports`)
+        from core.ops_ports import SCAN_SCOPE
+        from policies.scope import policy_scope
+
+        SCAN_SCOPE.register(policy_scope)
