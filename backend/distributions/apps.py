@@ -21,3 +21,8 @@ class DistributionsConfig(AppConfig):
         from .services import is_holding_distribution
 
         DISTRIBUTION_HOLD.register(is_holding_distribution)
+
+        # 배분 결과 알림 복구 스캔(#19, #138) — #1086 에서 contests 에서 옮겼다(이름 그대로)
+        from .notice_recovery import NOTICE_RECOVERY_SCAN
+
+        register_scan(NOTICE_RECOVERY_SCAN)

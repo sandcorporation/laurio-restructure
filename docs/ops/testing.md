@@ -258,7 +258,10 @@ scripts/test.sh backend tests/test_x.py   # db 하나만 띄우고(스크립트�
 payments·payouts·scoring)과 4앱(core·policies·storage·submissions)으로 갈렸다.
 `--all` 은 의존 방향을 센다 — 함수 안 import 와 `"app.Model"` 문자열(FK·`get_model`)까지 넣는다(#1086). 공유층은
 `--all` 로도 순환이 없다: `core` 가 운영 지표·정책을 부르는 셋은 `core.ops_ports` 자리로, 탈퇴·휴면 때 연결된 앱
-허락을 끊는 시그널 연결은 시그널을 가진 `accounts.apps` 로 옮겼다(`tests/test_shared_layer_ports.py`).
+허락을 끊는 시그널 연결은 시그널을 가진 `accounts.apps` 로 옮겼다. 공모전 가족도 `--all` 로 순환이 없다 — 층은
+아래부터 contests → payments·scoring·appeals → awards → handovers → distributions → payouts 이고, 아래가 위를 부르던
+자리는 `contests.ports`·`awards.ports` 자리로, 위 모델을 읽던 스캔·질의는 그 모델을 가진 앱으로 옮겼다.
+`tests/test_shared_layer_ports.py` 가 앱 전체에 `--all` 순환이 없음을 지킨다.
 
 **`INSTALLED_APPS` 에 앱을 더하면 그 표에 분류를 적기 전까지 빨갛다.** 한 방향으로만
 그렇다 — 표는 아직 설치되지 않은 앱(`classroom`)을 미리 이름 지을 수 있다.

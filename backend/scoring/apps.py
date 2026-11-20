@@ -7,6 +7,15 @@ class ScoringConfig(AppConfig):
     verbose_name = "Score · AI 채점"
 
     def ready(self) -> None:
+        # 공모전 앱이 묻는 채점 쪽 둘(#1086) — `contests.ports`
+        from contests.ports import POINTS_BY_REQUIREMENT, SIZE_HELD_FILTER
+
+        from .quality import points_by_requirement
+        from .size_hold import size_held_q
+
+        POINTS_BY_REQUIREMENT.register(points_by_requirement)
+        SIZE_HELD_FILTER.register(size_held_q)
+
         # 어댑터 부팅 가드(check_llm_adapter_mode)는 core.apps.CoreConfig.ready()가
         # 등록한다(#274) — 검사 대상(LLMScoringAdapter)이 core.llm_scoring으로
         # 옮겨가면서 검사도 함께 옮겨갔다. `scoring.checks`는 재노출만 남아 있다.

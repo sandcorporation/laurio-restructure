@@ -1,4 +1,4 @@
-"""공유층(core)이 위 앱을 import 하지 않고 부르는 자리가 실제로 올라 있다 — #1086.
+"""아래 앱이 위 앱을 import 하지 않고 부르는 자리가 실제로 올라 있고, 앱 사이 순환이 없다 — #1086.
 
 `core.ops_ports` 의 셋과, 탈퇴·휴면 때 연결된 앱 허락을 끊는 시그널 연결(`accounts.apps`)이 Django 가 뜬 뒤에
 제자리에 있어야 한다. 비면 운영 지표가 빠지거나 스캔이 정책 스코프 없이 돌거나 허락이 남는다.
@@ -41,9 +41,25 @@ def _cycles_script():
     return module
 
 
-def test_the_shared_layer_is_not_in_a_cycle_even_counting_function_imports_and_model_strings():
+def test_no_app_is_in_a_cycle_even_counting_function_imports_and_model_strings():
     cycles = _cycles_script()
-    deps, _ = cycles.graph(everything=True)
-    shared = {"accounts", "core", "ops_metrics", "policies"}
-    for comp in cycles.strongly_connected(deps):
-        assert len(comp) == 1 or not shared & set(comp), comp
+    deps, sites = cycles.graph(everything=True)
+    tangled = [comp for comp in cycles.strongly_connected(deps) if len(comp) > 1]
+    assert tangled == [], [
+        f"{src} → {dst}: {where}" for comp in tangled for (src, dst), where in sites.items() if {src, dst} <= set(comp)
+    ]
+
+
+def test_the_contest_family_slots_are_filled_by_the_apps_above():
+    from awards.ports import OPEN_HANDOVER
+    from contests import ports
+
+    for slot in (
+        ports.SIZE_HELD_FILTER,
+        ports.POINTS_BY_REQUIREMENT,
+        ports.AWARD_SUBMISSION,
+        ports.SPONSORED_CONTEST_QUERYSET,
+        ports.PAYOUT_ACTION,
+        OPEN_HANDOVER,
+    ):
+        assert callable(slot.get()), slot.name
