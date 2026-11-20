@@ -32,6 +32,11 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import paths  # noqa: E402
 
 # pr-check.yml plan 잡의 단계 이름 — 이 문자열을 바꾸면 release 가 증명을 못 해 늘 전체 check 를 돈다(안전한 쪽).
 TESTED_STEP = re.compile(r"^검사한 커밋 ([0-9a-f]{40})$")
@@ -258,9 +263,8 @@ def release_succeeded(repo: str, sha: str) -> bool:
 
 
 def changed_plan(sha: str) -> tuple[str, str, str]:
-    out = subprocess.run(["bash", "scripts/ci/changed.sh", f"{sha}^", sha], check=True, capture_output=True, text=True).stdout
-    found = dict(line.split("=", 1) for line in out.split())
-    return found["TESTS"], found["BACK"], found["FRONT"]
+    """병합 커밋 diff 에 PR 검사와 같은 경로 표(paths.py, changed.sh 가 부르는 것)를 돌린다."""
+    return paths.bundles(paths.diff(f"{sha}^", sha))
 
 
 def main(argv: list[str]) -> int:

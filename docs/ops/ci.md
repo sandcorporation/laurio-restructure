@@ -30,7 +30,7 @@ PR → pr-check.yml(「결과」 초록) → 작업자 squash 병합 → main
     | 둘 다, 또는 그 밖(`.github/`·`scripts/`·루트 설정·`pnpm-lock.yaml`) | 전부 | — |
 
     `결과` 는 위 표대로 돌아야 할 잡이 success, 건너뛰어야 할 잡이 skipped 일 때만 초록이다. main push(release)는 바뀐 파일이 없다고 보아 늘 전체다.
-    경로 표는 `scripts/test_changed_paths.py` 가 고정한다. 일부만 돈 PR 실행도 release verify 가 증명으로 받는다(#1097, 아래).
+    경로 표는 `scripts/ci/paths.py` 하나다 — `changed.sh`·`verified_tree.py`·`e2e_plan.py`·`pytest_plan.py` 가 모두 이것을 읽는다. `scripts/test_changed_paths.py` 가 고정한다. 일부만 돈 PR 실행도 release verify 가 증명으로 받는다(#1097, 아래).
   - **release 검사 잡**(main push, `workflow_call` 이라 `github.event_name` 은 부른 쪽 push): 위에 **guard(frontend·operator·classroom)** 가 더해진다.
   - 건너뛴 잡이 있는 PR 실행은 `verified_tree.py` 가 「계획과 같은 건너뜀」일 때만 초록으로 친다(#1097, 아래).
   - **e2e 는 PR 검사의 `e2e` 잡이다**(#1089, 매시 cron `e2e.yml` 은 지웠다). 시험은 `frontend/e2e/<앱>/`(공개)·`frontend/e2e/operator/<앱>/`·`frontend/e2e/classroom/` 에 두고 **폴더 이름이 앱 표시다** — `backend/app_deps.toml` 의 앱 이름이거나 `frontend`(백엔드 앱이 없는 화면·BFF 시험). `plan` 잡이 `scripts/ci/e2e_plan.py` 로 조각을 낸다: PR 은 바뀐 백엔드 앱(`app_deps.py affected`)의 폴더, 앞단이 바뀌면 그 앱 시험 전부, 시험 폴더만 바뀌면 그 폴더만, 공유 도우미·설정·워크플로·그 밖은 전부. 병합 대기열은 늘 전부. 시험 파일을 시험 수 40개 안팎의 조각에 나눠 담고 조각마다 실행기 하나가 스택을 따로 굽는다(`CODEMIT_E2E_PATHS`, `e2e.sh`). 병합 기준 `결과` 가 `e2e` 를 본다(조각이 있으면 success). 이미지 층 캐시는 guard·release 가 저장하고 e2e 조각은 복원만 한다.

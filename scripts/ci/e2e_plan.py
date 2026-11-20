@@ -22,8 +22,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app_deps import affected, load_table  # noqa: E402
+from paths import kind  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
 E2E = ROOT / "frontend" / "e2e"
@@ -52,9 +54,9 @@ def select(changed: list[str], table: dict, present: dict[str, dict[str, dict[st
     picked: dict[str, set[str]] = {p: set() for p in present}
     backend: list[str] = []
     for f in changed:
-        if f.endswith(".md") or f.startswith("docs/"):
+        if kind(f) == "docs":
             continue
-        if f.startswith("backend/"):
+        if kind(f) == "backend":
             backend.append(f)
         elif f.startswith("frontend/e2e/classroom/") and not f.startswith("frontend/e2e/classroom/lib/"):
             picked["classroom"].add("classroom")
