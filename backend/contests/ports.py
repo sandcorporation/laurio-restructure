@@ -9,12 +9,16 @@ Award(`awards.apps`)와 채점·완성도·가산(`scoring.apps`)도 같은 까�
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import Protocol, TYPE_CHECKING
 
 from core.registry import Slot
 
 if TYPE_CHECKING:
     from datetime import datetime
+
+    from django.db.models import Q, QuerySet
+
+    from policies.models import PlatformPolicy
 
     from contests.models import Contest, ContestSubmission, Requirement
     from core.quality_review import BonusScore, QualityTotal
@@ -84,3 +88,24 @@ def save_bonus_score(
     submission_id: int, requirement: Requirement, score: int, memo: str, rated_by_id: int, rated_at: datetime
 ) -> None:
     SAVE_BONUS_SCORE.get()(submission_id, requirement, score, memo, rated_by_id, rated_at)
+
+
+#: `scoring.size_hold.size_held_q` — 「지금 크기 초과 보류」 조건(`ScoringAttempt` 를 본다, #986). `contests.scoring_hold` 가 쓴다.
+SIZE_HELD_FILTER: Slot[Callable[[], "Q"]] = Slot("크기 초과 보류 조건", "scoring.apps")
+
+#: `scoring.quality.points_by_requirement` — 요구사항 id → 배점. 참가 화면의 완성도 보기가 쓴다.
+POINTS_BY_REQUIREMENT: Slot[Callable[[int], "dict[int, int]"]] = Slot("요구사항 배점", "scoring.apps")
+
+#: `awards.api.award_contest_submission` — 연결된 앱(MCP)의 「선정」이 화면 API 와 같은 길을 탄다(#870).
+AWARD_SUBMISSION: Slot[Callable[["Contest", int], None]] = Slot("제출 선정", "awards.apps")
+
+
+class SponsoredContestQuerySet(Protocol):
+    def __call__(self, base: "QuerySet[Contest]", *, as_of: "datetime", policy: "PlatformPolicy") -> "QuerySet[Contest]": ...
+
+
+#: `payouts.sponsor_contests.sponsored_contest_queryset` — 개최자 목록이 행마다 판정할 사실(채점·이의·지급·배분)을 붙인다(#81).
+SPONSORED_CONTEST_QUERYSET: Slot[SponsoredContestQuerySet] = Slot("개최자 목록 사실 붙이기", "payouts.apps")
+
+#: `payouts.participation.payout_action` — 참가자 화면의 돈 걸린 단계(#130, #177). None 이면 지급 단계가 아니다.
+PAYOUT_ACTION: Slot[Callable[["ContestSubmission"], "str | None"]] = Slot("참가자 지급 단계", "payouts.apps")

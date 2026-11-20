@@ -20,3 +20,10 @@ class HandoversConfig(AppConfig):
         from .services import build_asset_content_type
 
         BUILD_ASSET_CONTENT_TYPE.register(build_asset_content_type)
+
+        # 선정과 함께 인수인계를 연다(#14, #1086) — `awards.ports`
+        from awards.ports import OPEN_HANDOVER
+
+        from .services import open_handover
+
+        OPEN_HANDOVER.register(open_handover)

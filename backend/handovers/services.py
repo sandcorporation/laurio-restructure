@@ -81,3 +81,19 @@ def build_asset_content_type(object_key: str) -> str | None:
         .values_list("content_type", flat=True)
         .first()
     )
+
+
+def open_handover(award, now) -> None:
+    """선정과 함께 인수인계를 연다(#14) — `awards.api.award_contest_submission` 이 `awards.ports.OPEN_HANDOVER` 로
+    부른다(#1086). 인수 기한은 지금 정책의 인수 기간이다."""
+
+    from datetime import timedelta
+
+    from policies.scope import current_policy
+
+    from .models import Handover
+
+    Handover.objects.create(
+        award=award,
+        release_deadline_at=now + timedelta(days=current_policy().handover_acceptance_period_days),
+    )

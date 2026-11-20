@@ -11,6 +11,15 @@ class PayoutsConfig(AppConfig):
     verbose_name = "Payout · 지급 실행"
 
     def ready(self) -> None:
+        # 공모전 앱이 묻는 지급 쪽 둘(#1086) — `contests.ports`
+        from contests.ports import PAYOUT_ACTION, SPONSORED_CONTEST_QUERYSET
+
+        from .participation import payout_action
+        from .sponsor_contests import sponsored_contest_queryset
+
+        PAYOUT_ACTION.register(payout_action)
+        SPONSORED_CONTEST_QUERYSET.register(sponsored_contest_queryset)
+
         from django.core.checks import register
 
         from . import checks

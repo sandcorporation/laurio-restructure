@@ -44,7 +44,7 @@ from contests.images import (
 )
 from contests.ports import has_refunded_payment, sync_requested_payment_prize
 from contests.search import search_contests
-from contests.sponsorship import sponsored_contest_queryset
+from contests.ports import SPONSORED_CONTEST_QUERYSET
 from accounts.models import SponsorProfile
 from accounts.sanitize import sanitize_free_text
 from core.banned_words import BannedWordViolation, find_banned_word_violation
@@ -727,7 +727,7 @@ def list_my_sponsored_contests(request: HttpRequest, after: str | None = None):
     policy = current_policy()
 
     contests = (
-        sponsored_contest_queryset(
+        SPONSORED_CONTEST_QUERYSET.get()(
             Contest.objects.filter(sponsor=profile),
             as_of=as_of,
             policy=policy,

@@ -24,3 +24,16 @@ class PayoutTarget:
     lock: Callable[[], Any]
     # 잠근 행에서 지급할 Prize 금액(원)을 읽는다.
     prize_amount_of: Callable[[Any], int]
+
+
+def handover_payout_target(handover) -> PayoutTarget:
+    """이 Handover 를 지급 사유로 하는 Payout 생성에 필요한 것 (#129). #1086 에서 `Handover.payout_target()` 을
+    여기로 옮겼다 — 인수인계 앱이 지급 앱을 부르지 않게."""
+
+    from handovers.models import Handover
+
+    return PayoutTarget(
+        fk_name="handover",
+        lock=lambda: Handover.objects.select_for_update().get(pk=handover.pk),
+        prize_amount_of=lambda locked: locked.award.contest.prize,
+    )
