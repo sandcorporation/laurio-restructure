@@ -2,7 +2,7 @@
 # 검사 내용은 이 파일에 쓰지 않고 scripts/ci/ 의 스크립트들을 그대로 부른다.
 #
 #   plan    문서(.md·docs/)만 바뀌었나(`changed.sh`) — 그러면 ADR 상태 검사만
-#   checks  `sub-checks.sh` — Django check·check --deploy·pytest 전체·생성물·문서 검사·단위 시험·타입 검사
+#   checks  `sub-checks.sh` — Django check·check --deploy·마이그레이션 호환(#1091)·pytest 전체·생성물·문서 검사·단위 시험·타입 검사
 #   guard   (PR 에서는 건너뜀, release 에서만 — #1015) 세 앱 prod 이미지(amd64)를 여기서 굽고 `deploy-guard.sh` — 설정 없이는 죽고, 완전한 설정으로는 뜬다
 #   (e2e 는 PR·release 에서 빠졌다 — e2e.yml 이 main 을 매시 돈다, #1015)
 #   celery  `celery-broker.sh` — 실제 Redis 브로커로 beat → worker
@@ -124,6 +124,9 @@ jobs:
           key: bk-ci-${{ hashFiles('docker/ci.Dockerfile','backend/uv.lock','pnpm-lock.yaml') }}
           restore-keys: bk-ci-
       - name: 검사 묶음(sub-checks.sh)
+        env:
+          # 마이그레이션 호환 검사(#1091)의 base — PR 은 병합 대상, 대기열은 그 머지 커밋의 base, main push(release.yml)는 직전 main
+          CODEMIT_MIGRATION_BASE: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before }}
         run: bash scripts/ci/sub-checks.sh ${{ matrix.args }}
       - if: success() && env.CODEMIT_BK_CACHE_SAVE != '' && steps.bk-ci.outputs.cache-hit != 'true'
         name: 이미지 층 캐시 저장(ci, main push 만)

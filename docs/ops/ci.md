@@ -80,7 +80,7 @@ PR → pr-check.yml(「결과」 초록) → 작업자 squash 병합 → main
 - **저장은 main 실행(release.yml 의 check)에서만**(`CODEMIT_BK_CACHE_SAVE`) — PR 에서 만든 캐시는 그 PR 안에서만 쓰여 다른 PR 에 소용이 없고
   10GB 만 먹는다. 저장은 `actions/cache/save` 이고 정확한 키가 이미 있으면 건너뛴다(저장소 쓰기 권한이 필요 없다 — GHA 캐시 백엔드
   `type=gha` 는 쓰지 않는 까닭). 내보내는 곳은 복원한 폴더와 다른 `/tmp/bk-new` 이고 저장 직전에 바꿔 끼워 한 세대만 남긴다.
-- **병렬화(#932)**: `checks` 는 `sub-checks.sh <묶음>` 으로 여섯 실행기 — `static`(Django·생성물·문서·언어 검사)·`pytest I/N`(4조각,
+- **병렬화(#932)**: `checks` 는 `sub-checks.sh <묶음>` 으로 여섯 실행기 — `static`(Django·마이그레이션 호환·생성물·문서·언어 검사)·`pytest I/N`(4조각,
   파일별 시간 기록으로 고르게 — `pytest_shards.py`, 기록 갱신은 `pytest-durations-update.sh`, #1083)·`web`(단위 시험·typecheck). 인자 없이는 전부 돈다(로컬 길). `e2e` 는 `CODEMIT_E2E_TARGETS` 로
   `public operator`·`classroom` 두 실행기(일꾼 1개 그대로). Playwright `--shard` 대신 프로젝트 단위로 나눈 까닭은 `e2e-two-pass.sh` 의
   `@exclusive` 패스가 시험 순번 shard 와 섞이면 일꾼 하나 보장이 깨지기 때문이다. 실패 결과물은 `checks-test-results-<묶음>`·`e2e-test-results-<이름>`, pytest 조각의 junit 은 초록이어도 `pytest-junit-<조각>`(14일).
@@ -97,8 +97,8 @@ PR → pr-check.yml(「결과」 초록) → 작업자 squash 병합 → main
 | 노드 고르기 | — | **macos 먼저**(`prefer: 'macos'`), 25분 안에 못 잡으면 home — e2e 가 macos 에서만 돌아 home 으로 넘어간 빌드는 ① 만 돌고 붉다 |
 | 검사 | macos | `scripts/ci/pr-check.sh`. 문서(`.md`·`docs/`)만 바뀌었으면(`changed.sh`, merge-base 와 견준다) ADR 검사만. 아니면 ① `sub-checks.sh`(파일 이름의 sub 는 옛 호스트 이름) — Django `check`·`check --deploy`, pytest 전체, 생성물 최신성 둘, ADR·화면 언어·고정 대기 검사, 단위 시험, 세 앱 typecheck ② `macos-sweep.sh` → `images.sh arm64`(prod 여섯을 이 커밋으로, 바뀌지 않은 문맥은 ctx 로 건너뜀, `ghcr-push-token`) ③ 이번에 구운 앱의 부팅 가드(`deploy-guard.sh`, #838) ④ **그 이미지를 받아** `e2e.sh`(세 프로젝트)·`celery-broker.sh` ⑤ 초록이면 ctx 태그(`images-ctx.sh`)와 e2e 태그(`images-e2e.sh`) |
 
-파괴적 migrate 검사(라이브러리)는 끈다(`migrationGuard: false`) — codemit 은 겹쳐 바꾸기 안전을 `ROLLING-DEPLOY-UNSAFE`
-표식과 `backend/tests/test_migration_rolling_safety.py` 로 지킨다(ADR-0053).
+파괴적 migrate 검사(라이브러리)는 끈다(`migrationGuard: false`) — codemit 은 마이그레이션 호환을 PR 검사 static 묶음의
+`scripts/ci/migration_compat.py` 로 지킨다([마이그레이션](migrations.md), #1091).
 
 **배포 이미지는 PR 검사가 굽고, 배포 잡은 대개 커밋 태그만 더한다.** PR 검사는 이 브랜치 머리로 여섯을 굽고
 커밋 태그 `<sha>-arm64` 로 올린다. e2e·celery 는 스택이 따로 굽지 않고 그 이미지를 받아 돈다

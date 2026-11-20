@@ -154,8 +154,9 @@ PLAN_FILE=".jenkins-${TARGET}-plan"
 GIT="git -c safe.directory=$PWD"
 
 # 뒤로 호환되지 않는 마이그레이션의 표식(ADR-0053). 파일 어디든 이 모양의 주석 한 줄이면
-# 그 마이그레이션이 든 배포는 겹쳐 바꾸지 않는다. 같은 문자열을
-# `backend/tests/test_migration_rolling_safety.py` 가 읽는다 — 바꾸면 둘을 같이 고친다.
+# 그 마이그레이션이 든 배포는 겹쳐 바꾸지 않는다. 지금은 닿지 않는 길이다 — PR 검사
+# (`scripts/ci/migration_compat.py`, #1091)가 표식과 상관없이 호환되지 않는 마이그레이션을 거절해
+# 그런 파일이 main 에 들어오지 않고, 표식을 단 파일도 없다.
 UNSAFE_MIGRATION_MARKER='^[[:space:]]*#[[:space:]]*ROLLING-DEPLOY-UNSAFE:'
 
 log() { echo "[deploy:${TARGET}] $*"; }
@@ -599,10 +600,10 @@ cmd_plan() {
   # 컨테이너가 새 컨테이너와 몇 초 함께 요청을 받는다. 마이그레이션은 그 전에 새 이미지의
   # 일회성 컨테이너가 돌리므로(아래 run_migrations) **그 몇 초 동안 옛 코드가 새 스키마
   # 위에서 돈다** — 그래서 마이그레이션은 뒤로 호환되게 쓴다(ADR-0053: 추가는 그대로,
-  # 삭제·이름 바꾸기·NOT NULL 은 다음 배포로 나눈다). 지키지 못한 마이그레이션은 파일에
-  # `# ROLLING-DEPLOY-UNSAFE: <이유>` 를 달고, 그 표식이 배포 범위에 있으면 예전처럼
-  # 넷을 내리고 올린다(`backend/tests/test_migration_rolling_safety.py` 가 표식 없는 위험
-  # 연산을 막는다).
+  # 삭제·이름 바꾸기·NOT NULL 은 다음 배포로 나눈다 — docs/ops/migrations.md). PR 검사
+  # `scripts/ci/migration_compat.py`(#1091)가 base 코드와 호환되지 않는 마이그레이션을 거절한다.
+  # `# ROLLING-DEPLOY-UNSAFE: <이유>` 표식이 배포 범위에 있으면 예전처럼 넷을 내리고
+  # 올리는 길은 남아 있지만, 그 검사가 표식을 보지 않아 지금은 닿지 않는다.
   #
   # 예전에는 **새 마이그레이션이 든 배포 전부가** 내리고 올렸다. 그 창이 공개 앱 재시도
   # 예산(약 15.8초)보다 길어 `/contests` 가 500 을 냈다(2026-10-02 prod, `0014_connected_apps`
