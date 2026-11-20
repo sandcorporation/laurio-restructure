@@ -30,3 +30,10 @@ class PayoutsConfig(AppConfig):
         # 접수되지 않은 Seller 등록의 자력 회복 스캔(#178).
         for spec in SELLER_REGISTRATION_RECOVERY_SCANS:
             register_scan(spec)
+
+        # 배분 몫 지급(#1086 — distributions 에서 옮겼다). distributions 가 INSTALLED_APPS 에서 앞이라
+        # `distribution-create` 다음에 등록된다 — 수동 tick(`run_all`)이 생성 → 지급 순서를 지킨다.
+        from .distribution_payouts import DISTRIBUTION_PAYOUT_SCANS
+
+        for spec in DISTRIBUTION_PAYOUT_SCANS:
+            register_scan(spec)

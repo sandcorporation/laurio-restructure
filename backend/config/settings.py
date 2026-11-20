@@ -174,8 +174,10 @@ INSTALLED_APPS = [
     "repositories",
     "awards",
     "handovers",
-    "payouts",
+    # distributions 가 payouts 앞이다(#1086) — 스캔 등록 순서 `distribution-create` → `distribution-share-payout`
+    # (`payouts.distribution_payouts`)를 지킨다.
     "distributions",
+    "payouts",
     "appeals",
     # 강의실(ADR-0037). 첫 삽 — 모델은 아직 없다(#275). 경계는 이 앱이 서는
     # 순간부터 물게 하려고 `tests/test_app_boundaries.py` 의 분류표에 먼저

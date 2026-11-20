@@ -16,7 +16,8 @@ API 레이어(`distributions.api`)에서만 호출된다 — 테스트의 유일
 2. 아직 확정되지 않은 몫(DistributionShare) — 새로 만들어졌거나, 이전 시도가
    FAILED로 끝나 재시도 대상이 된 몫에 대해 `payouts` 앱의 기존 경로
    (`get_or_create_payout`/`advance`)를 그대로 재사용해
-   지급을 시도한다. 실패한 몫은 REQUESTED가 아니라 FAILED로 남으므로 다음 스캔이
+   지급을 시도한다. 이 스캔은 `payouts.distribution_payouts` 에 있다(#1086 — payouts 가
+   몫을 FK 로 가리키므로 distributions 는 payouts 를 부르지 않는다). 실패한 몫은 REQUESTED가 아니라 FAILED로 남으므로 다음 스캔이
    자동으로 재시도한다 — "일부만 성공하면 성공분만 원장에 반영되고 나머지는
    재시도 대상으로 남는다"(#16 AC)는 이 재시도 루프의 직접적인 결과다.
 
@@ -41,14 +42,10 @@ from core.clock import Clock
 from core.contest_switch import paid_contest_product_enabled
 from ledger.models import Account, EntrySide
 from ledger.services import LineInput, post_journal_entry
-from payouts.adapters import PayoutError, get_adapter
-from payouts.models import Payout
-from payouts.progress import advance
-from payouts.services import get_or_create_payout
 from policies.models import PlatformPolicy
 from policies.scope import current_policy
 
-from core.scans import ScanSpec, scan_params
+from core.scans import ScanSpec
 
 from .models import Distribution, DistributionShare
 
@@ -162,52 +159,6 @@ def _create_distribution_for_contest(
     return distribution
 
 
-def _attempt_share_payout(
-    share: DistributionShare, *, force_failure: bool
-) -> dict:
-    """이 몫에 대한 지급을 시도(신규 요청 또는 재시도)한다.
-
-    `payouts.services.get_or_create_payout`가 이미 활성 Payout이 있으면 그대로
-    돌려주므로, 여기서 새 요청이 중복으로 나가지 않는다. `force_failure`는 fake
-    어댑터 전용 테스트 시나리오 선택이다(`payments.api.ConfirmPaymentIn.simulate`와
-    같은 원칙) — 실제 어댑터에서는 의미가 없다.
-
-    `policy`는 스캔 실행의 스코프에서 한 번 읽은 것이다(`policies.scope`, #75, #145,
-    ADR-0023) — 여기서 다시 읽지 않는다. 그러지 않으면 이 스캔이 시도하는 몫
-    수만큼 정책 조회가 나간다.
-    """
-
-    payout = get_or_create_payout(share.payout_target())
-
-    if payout.status != Payout.Status.REQUESTED:
-        # 이미 다른 경로(웹훅 등)로 확정·실패되어 있다 — 그대로 지나간다.
-        return {
-            "submission_id": share.submission_id,
-            "idempotency_key": str(payout.idempotency_key),
-            "status": payout.status,
-        }
-
-    # 벤더 확인·실이체·Seller 등록·원장 분개 전부 advance 가 한다(#133, #135) — Award 경로의
-    # 확정 엔드포인트와 같은 함수다. `force_failure`는 fake 어댑터 전용 시나리오 선택이다. 벤더의
-    # 명시적 거절(PayoutError)은 이 몫의 이번 시도를 실패로 끝낸다 — 다음 스캔이 새 요청으로 재시도.
-    try:
-        payout = advance(
-            payout,
-            register_seller=True,
-            adapter=get_adapter(),
-            confirm_with_vendor=True,
-            simulate="failed" if force_failure else None,
-        )
-    except PayoutError:
-        payout = advance(payout, register_seller=False, confirmed_by_vendor=False)
-
-    return {
-        "submission_id": share.submission_id,
-        "idempotency_key": str(payout.idempotency_key),
-        "status": payout.status,
-    }
-
-
 def distribution_due_q(as_of, policy) -> Q:
     """「배분 시각이 왔다」는 조건 그 자체 — **이의 보류를 적용하기 전의** 것이다.
 
@@ -303,25 +254,6 @@ def _create_distribution(contest, as_of, ctx):
     }
 
 
-def _pending_shares(as_of, ctx):
-    return (
-        DistributionShare.objects.exclude(payouts__status__in=Payout.Status.SETTLED.statuses)
-        .select_related("distribution", "submission")
-        .distinct()
-    )
-
-
-def _attempt_payout(share, as_of, ctx):
-    # `fail_submission_ids`(scan_params)는 fake 지급대행 어댑터 전용 테스트 시나리오 선택이다 —
-    # 여기 나열된 submission_id 의 지급 시도만 강제로 실패시킨다. 실제 어댑터에서는 의미가 없다.
-    fail_submission_ids = set(scan_params(ctx).get("fail_submission_ids", []))
-    outcome = _attempt_share_payout(
-        share, force_failure=share.submission_id in fail_submission_ids
-    )
-    outcome["event"] = "payout_attempted"
-    return outcome
-
-
 # 배치 50은 뼈대 기본값 그대로다 — 무제한 스캔은 백로그가 쌓였을 때 이 요청 자체를 타임아웃으로
 # 몰아넣는다.
 #
@@ -333,12 +265,6 @@ DISTRIBUTION_SCANS = (
         name="distribution-create",
         candidates=_due_contests,
         handle_row=_create_distribution,
-        enabled=paid_contest_product_enabled,
-    ),
-    ScanSpec(
-        name="distribution-share-payout",
-        candidates=_pending_shares,
-        handle_row=_attempt_payout,
         enabled=paid_contest_product_enabled,
     ),
 )
