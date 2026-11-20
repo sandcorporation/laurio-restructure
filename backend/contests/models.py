@@ -1141,3 +1141,82 @@ class ContestConnectedAppWrite(models.Model):
     class Meta:
         ordering = ["-created_at", "-id"]
         indexes = [models.Index(fields=["user", "-created_at"], name="contests_capw_user_idx")]
+
+
+# --- 자가 응답·근거 (#1086) -----------------------------------------------------------------
+#
+# 자가 응답은 공모전 요구사항(`Requirement`)에 대한 응답이라 공모전 앱에 둔다. `submissions` 에 있을 때는
+# 공유층이 공모전 모델을 FK 로 가리켰다(역방향 DB 간선). 근거(`Evidence`)는 자가 응답을 가리키므로 함께 왔다.
+# 표·제약 이름은 그대로다 — 마이그레이션은 상태만 옮겼다(`contests/0015`, `submissions/0006`).
+
+
+class RequirementResponse(models.Model):
+    """한 Requirement에 대한 Developer의 자가 응답."""
+
+    submission = models.ForeignKey(
+        Submission, related_name="requirement_responses", on_delete=models.CASCADE
+    )
+    requirement = models.ForeignKey(
+        Requirement, related_name="responses", on_delete=models.CASCADE
+    )
+    is_met = models.BooleanField(default=False)
+    note = models.CharField(max_length=1000, blank=True)
+
+    class Meta:
+        # 표 이름은 옮기기 전 그대로 — 소속 앱만 contests 로 옮겼다(#1086, 상태만 옮긴 마이그레이션).
+        db_table = "submissions_requirementresponse"
+        ordering = ["requirement__order", "requirement_id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["submission", "requirement"], name="unique_response_per_requirement"
+            ),
+        ]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"RequirementResponse(submission={self.submission_id}, requirement={self.requirement_id})"
+
+
+class Evidence(models.Model):
+    """자가 응답 하나를 뒷받침하는 근거 (CONTEXT.md의 Evidence)."""
+
+    class Kind(models.TextChoices):
+        VIDEO_TIMESTAMP = "video_timestamp", "영상 타임스탬프"
+        SCREENSHOT = "screenshot", "스크린샷"
+        DEMO_PATH = "demo_path", "데모 내 경로"
+        SOURCE_LOCATION = "source_location", "소스 위치"
+
+    response = models.ForeignKey(
+        RequirementResponse, related_name="evidence_items", on_delete=models.CASCADE
+    )
+    kind = models.CharField(max_length=20, choices=Kind.choices)
+    value = models.CharField(max_length=500)
+
+    # 이 근거가 가리키는 자료 (#190). 데모·영상이 여럿이 되는 순간 "데모 내 경로"나
+    # "영상 타임스탬프"가 어느 대상의 것인지 알 수 없어지고, 채점 프롬프트는 그
+    # 값을 그대로 LLM에 넘기므로 AI가 근거를 못 찾아 미달 판정이 는다. 자료를
+    # 지우면 그것을 가리키던 근거도 함께 사라진다 — 가리킬 곳이 없는 근거는
+    # 근거가 아니다. null은 "자료를 특정하지 않은 근거"이고 그대로 허용된다
+    # (기존 행 전부가 그렇다).
+    asset = models.ForeignKey(
+        "submissions.SubmissionAsset",
+        related_name="evidence_items",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        # 표 이름은 옮기기 전 그대로 — 소속 앱만 contests 로 옮겼다(#1086, 상태만 옮긴 마이그레이션).
+        db_table = "submissions_evidence"
+        # **순서를 명시한다** (#195 리뷰). 이 모델에는 `Meta` 자체가 없었고, 그래서
+        # `response.evidence_items.all()` 이 정렬 없는 SELECT 였다 — 순서가 우연히
+        # 삽입 순이었을 뿐이다. `_replace_requirement_responses` 가 저장할 때마다
+        # 이전 행을 전부 지우고 다시 만들므로 힙 재사용으로 순서가 뒤집힐 수 있고,
+        # 그러면 참가자가 적어 둔 근거가 화면에서 자리를 바꾼다. 형제인
+        # `RequirementResponse`·`SubmissionAsset` 은 둘 다 `ordering` 을 갖는다.
+        ordering = ["id"]
+
+    def __str__(self) -> str:  # pragma: no cover
+        return f"Evidence({self.kind}={self.value!r})"

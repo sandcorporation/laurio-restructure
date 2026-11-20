@@ -85,10 +85,10 @@ from django.utils import timezone
 from accounts.models import DeveloperProfile, SponsorProfile
 from awards.models import Award
 from contests.curation import HomeCurationBucket, home_bucket_for
-from contests.models import Category, Contest, ContestSubmission, DeliverableType, Requirement
+from contests.models import Category, Contest, ContestSubmission, DeliverableType, Evidence, Requirement, RequirementResponse
 from contests.submission_target_refs import target_ref_for_asset_kind
 from scoring.models import hard_delete_demo_seed_scores
-from submissions.models import Evidence, RequirementResponse, Submission, SubmissionAsset
+from submissions.models import Submission, SubmissionAsset
 from verification.models import Verification
 
 PREFIX = "[데모] "

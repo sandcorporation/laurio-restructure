@@ -70,8 +70,6 @@ from storage.adapters import get_storage_adapter
 from storage.filenames import build_download_filename
 from storage.policy import get_download_ttl_resolver
 from submissions.models import (
-    Evidence,
-    RequirementResponse,
     Submission,
     SubmissionAsset,
     REPOSITORY_URL_SHAPES_MESSAGE,
@@ -88,7 +86,7 @@ from submissions.video_link import VIDEO_LINK_SHAPE_MESSAGE, is_safe_video_link
 from verification.models import Verification
 
 from .images import ALLOWED_CONTEST_IMAGE_CONTENT_TYPES
-from .models import Contest, ContestSubmission, Requirement
+from .models import Contest, ContestSubmission, Evidence, Requirement, RequirementResponse
 from .submission_participation import next_action_for
 from .submission_retention import demo_video_destroy_at
 from .submission_schemas import (
