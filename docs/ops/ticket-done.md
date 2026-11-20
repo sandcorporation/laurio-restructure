@@ -78,7 +78,7 @@ e2e` 로 파일·프로젝트를 좁혀 돌린다. 그 스크립트들은 CI 가
 **이번엔 전부 이 머신에서 다시 쟀다** — 옛 표의 e2e 수치는 이전 머신(WSL) 것이었다.
 
 ```bash
-scripts/test.sh backend tests/test_payouts.py -q
+scripts/test.sh backend payouts/tests/test_payouts.py -q
 scripts/test.sh e2e --project=public e2e/payout.spec.ts -g "상금 그대로가"
 ```
 
