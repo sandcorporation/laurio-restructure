@@ -63,7 +63,8 @@ case "${1:-all}" in
 esac
 
 status=0
-docker run --name "$box" --network "$net" --env-file scripts/ci/backend-test.env -e CI=true \
+# CODEMIT_PYTEST_FILES(#1088): PR 의 선택 실행이 고른 시험 파일 — 없으면 전부(pytest_shards.py)
+docker run --name "$box" --network "$net" --env-file scripts/ci/backend-test.env -e CI=true -e CODEMIT_PYTEST_FILES \
   ${mounts[@]+"${mounts[@]}"} "$image" bash scripts/ci/sub-checks-inside.sh "$@" || status=$?
 docker cp "$box:/repo/test-results/." test-results/ >/dev/null 2>&1 || true
 exit "$status"

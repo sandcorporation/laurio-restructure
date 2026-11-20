@@ -45,7 +45,8 @@ deploy_check() {
 
 # 어느 묶음을 돌릴지 — 인자 없이는 전부(로컬·한 번에 도는 길). GitHub Actions 는 matrix 로 나눠 부른다(#932):
 #   static          Django 검사·배포 구성 검사·마이그레이션 호환·생성물 최신성·문서/언어/고정 대기 검사(파이썬 스크립트)
-#   pytest [I/N]    백엔드 pytest — I/N 이면 시험 파일을 기록된 시간으로 고르게 N 개로 나눈 I번째(1부터) 조각(pytest_shards.py)
+#   pytest [I/N]    백엔드 pytest — I/N 이면 시험 파일을 기록된 시간으로 고르게 N 개로 나눈 I번째(1부터) 조각(pytest_shards.py).
+#                   CODEMIT_PYTEST_FILES 가 있으면 그 파일들만 나눈다(PR 선택 실행, #1088 — pytest_plan.py)
 #   web             단위 시험(packages·세 앱)과 세 앱 타입 검사
 group="${1:-all}"
 shard="${2:-}"

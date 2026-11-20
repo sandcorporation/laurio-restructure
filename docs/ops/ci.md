@@ -20,13 +20,13 @@ PR → pr-check.yml(「결과」 초록) → 작업자 squash 병합 → main
   **PR 에서는 `guard` 를 건너뛴다**(#1015, 줄 서기 단축). **`e2e` 는 PR 에서는 바뀐 앱의 시험만, 병합 대기열(`merge_group`)에서는 전부를 조각 나란히로 돌고 release(main push)에서는 건너뛴다**(#1089).
   `guard` 는 `plan` 잡 출력 `guard`(PR 이벤트면 빔)를 `if` 가 본다. 잡 이름·`결과` 는 그대로다.
   - **`결과` 는 skipped 를 통과로 세지 않는다**: plan 이 시험 없음(문서만)이면 나머지가 skipped, 아니면 checks·celery 는 success, guard 는 PR 이 아닐 때 success(PR 에서만 skipped)여야 통과다. 조건을 잘못 걸어 필수 잡이 통째로 건너뛰어도 초록이던 구멍을 막는다.
-  - **PR 검사 잡**: plan · checks(static·pytest 4·web) · celery · agent-grader · 결과(guard 는 skipped). 어느 잡이 도는지는 `changed.sh` 가 바뀐 경로로 고른다(#1082):
+  - **PR 검사 잡**: plan · checks(static·pytest 조각·web) · celery · agent-grader · 결과(guard 는 skipped). 어느 잡이 도는지는 `changed.sh` 가 바뀐 경로로 고른다(#1082):
 
     | 바뀐 경로 | 도는 잡 | 건너뛰는 잡 |
     | --- | --- | --- |
     | 문서만(`*.md`·`docs/`) | plan 의 검사만 | checks·celery·agent-grader |
-    | 프런트만(`frontend/`·`operator/`·`classroom/`·`packages/`) | checks static·web | pytest 4조각·celery·agent-grader |
-    | 백엔드만(`backend/`·`docker/`) | checks static·pytest 4조각·celery·agent-grader | web (`schema.gen.ts` 최신성은 static 에 남는다) |
+    | 프런트만(`frontend/`·`operator/`·`classroom/`·`packages/`) | checks static·web | pytest·celery·agent-grader |
+    | 백엔드만(`backend/`·`docker/`) | checks static·pytest(바뀐 앱만, 아래)·celery·agent-grader | web (`schema.gen.ts` 최신성은 static 에 남는다) |
     | 둘 다, 또는 그 밖(`.github/`·`scripts/`·루트 설정·`pnpm-lock.yaml`) | 전부 | — |
 
     `결과` 는 위 표대로 돌아야 할 잡이 success, 건너뛰어야 할 잡이 skipped 일 때만 초록이다. main push(release)는 바뀐 파일이 없다고 보아 늘 전체다.
@@ -34,6 +34,14 @@ PR → pr-check.yml(「결과」 초록) → 작업자 squash 병합 → main
   - **release 검사 잡**(main push, `workflow_call` 이라 `github.event_name` 은 부른 쪽 push): 위에 **guard(frontend·operator·classroom)** 가 더해진다.
   - 건너뛴 잡이 있는 PR 실행은 `verified_tree.py` 가 「계획과 같은 건너뜀」일 때만 초록으로 친다(#1097, 아래).
   - **e2e 는 PR 검사의 `e2e` 잡이다**(#1089, 매시 cron `e2e.yml` 은 지웠다). 시험은 `frontend/e2e/<앱>/`(공개)·`frontend/e2e/operator/<앱>/`·`frontend/e2e/classroom/` 에 두고 **폴더 이름이 앱 표시다** — `backend/app_deps.toml` 의 앱 이름이거나 `frontend`(백엔드 앱이 없는 화면·BFF 시험). `plan` 잡이 `scripts/ci/e2e_plan.py` 로 조각을 낸다: PR 은 바뀐 백엔드 앱(`app_deps.py affected`)의 폴더, 앞단이 바뀌면 그 앱 시험 전부, 시험 폴더만 바뀌면 그 폴더만, 공유 도우미·설정·워크플로·그 밖은 전부. 병합 대기열은 늘 전부. 시험 파일을 시험 수 40개 안팎의 조각에 나눠 담고 조각마다 실행기 하나가 스택을 따로 굽는다(`CODEMIT_E2E_PATHS`, `e2e.sh`). 병합 기준 `결과` 가 `e2e` 를 본다(조각이 있으면 success). 이미지 층 캐시는 guard·release 가 저장하고 e2e 조각은 복원만 한다.
+  - **pytest 는 PR 에서는 바뀐 앱과 그 앱에 기대는 앱의 시험만, 병합 대기열·release 에서는 전부를 조각 나란히로 돈다**(#1088). `plan` 잡이 `scripts/ci/pytest_plan.py` 로 고른다:
+    `backend/<앱>/…` → `app_deps.py affected` 가 고른 앱(바뀐 앱·그 앱을 쓰는·읽는 앱·그 앱들이 꽂힌 앱)의 `<앱>/tests/`, `backend/tests/**/test_*.py` 만 바뀌면 그 파일만,
+    그 밖의 backend(`config/`·`conftest.py`·시험 도우미·`pyproject.toml`·`uv.lock`)·`docker/`·`scripts/`·`.github/`·루트는 전부. 앱 사이 시험(`tests/integration/`)은
+    **닿는 앱**(import·주소 — `tests_layout.py` 가 그 파일의 자리를 정한 규칙, `touched()`)이 고른 앱과 겹칠 때만 돌고, 다 안 보이는 파일(전체 주소·`OVERRIDES`)은 늘 돈다.
+    구조·전체 주소 시험(`tests/` 바로 아래, 경계 시험 포함)은 pytest 가 돌면 늘 돈다. 조각 수는 고른 파일의 기록 시간 합 ÷ 120초(1~6) — 전부면 6조각이다.
+    고른 파일은 `CODEMIT_PYTEST_FILES` 로 조각 잡에 가고 `pytest_shards.py pick` 이 그 안에서 나눈다(없으면 전부). 규칙은 `scripts/test_pytest_plan.py` 가 고정한다.
+    시간 기록 산출물 `pytest-junit-<조각>` 은 **전부를 돈 실행만** 올린다 — 일부의 junit 으로 기록을 쓰면 안 돈 파일이 0초가 된다.
+    release verify 는 일부만 돈 PR 실행의 pytest 도 증명으로 받는다 — e2e 와 같이 전부는 병합 대기열이 같은 트리로 돌았다는 것에 기댄다.
   - **release 를 끈 뒤 켜면**(그동안 병합된 main 머리는 다음 push 까지 안 나간다) `gh workflow run release.yml --ref main` 으로 한 번 돌린다(`workflow_dispatch`, #1018). main 이 아닌 ref 는 `main_only` 잡이 실패시켜 뒤 잡(승격 포함)이 모두 멈춘다.
   - **celery 잡**(#1020)은 `celery-worker` 와 그 의존(db·redis·minio·backend)만 띄운다 — Next 앱 셋·events·grader 는 굽지 않는다. beat 간격은 `compose.ci.yaml` 의 `CODEMIT_CI_BEAT_INTERVAL_SECONDS=10`(`config/celery.py` 가 주기 스캔에만 적용, 운영·dev 는 그대로 60초).
   - **빨강 알림 = 라벨 `ci-red` 이슈**(`scripts/ci/ci-issue.sh`, release `notify` 잡, `issues: write` 하나): 종류(「release 검사 실패」)마다 열린 이슈는 하나, 이미 있으면 댓글. 본문에 실패 sha·run 링크·실패한 잡·직전 초록…이번 sha compare 링크. 다시 초록이면 「복구됨 <sha>」 댓글 후 닫는다 — **열린 `ci-red` 이슈 = 지금 빨강**이다. 라벨이 없으면 workflow 가 만든다.
@@ -79,11 +87,11 @@ PR → pr-check.yml(「결과」 초록) → 작업자 squash 병합 → main
 - **저장은 main 실행(release.yml 의 check)에서만**(`CODEMIT_BK_CACHE_SAVE`) — PR 에서 만든 캐시는 그 PR 안에서만 쓰여 다른 PR 에 소용이 없고
   10GB 만 먹는다. 저장은 `actions/cache/save` 이고 정확한 키가 이미 있으면 건너뛴다(저장소 쓰기 권한이 필요 없다 — GHA 캐시 백엔드
   `type=gha` 는 쓰지 않는 까닭). 내보내는 곳은 복원한 폴더와 다른 `/tmp/bk-new` 이고 저장 직전에 바꿔 끼워 한 세대만 남긴다.
-- **병렬화(#932)**: `checks` 는 `sub-checks.sh <묶음>` 으로 여섯 실행기 — `static`(Django·마이그레이션 호환·생성물·문서·언어 검사)·`pytest I/N`(4조각,
+- **병렬화(#932)**: `checks` 는 `sub-checks.sh <묶음>` 으로 여섯 실행기 — `static`(Django·마이그레이션 호환·생성물·문서·언어 검사)·`pytest I/N`(전부면 6조각, PR 은 고른 시험의 시간만큼,
   파일별 시간 기록으로 고르게 — `pytest_shards.py`, 기록 갱신은 `pytest-durations-update.sh`, #1083)·`web`(단위 시험·typecheck). 인자 없이는 전부 돈다(로컬 길). `e2e` 는 `CODEMIT_E2E_TARGETS` 로
   `public operator`·`classroom` 두 실행기(일꾼 1개 그대로). Playwright `--shard` 대신 프로젝트 단위로 나눈 까닭은 `e2e-two-pass.sh` 의
-  `@exclusive` 패스가 시험 순번 shard 와 섞이면 일꾼 하나 보장이 깨지기 때문이다. 실패 결과물은 `checks-test-results-<묶음>`·`e2e-test-results-<이름>`, pytest 조각의 junit 은 초록이어도 `pytest-junit-<조각>`(14일).
-  동시 잡은 plan 1 + checks 6 + guard 3 + e2e 2 + celery 1 + agent-grader 1 + 결과 1 = 15(공개 저장소 한도 20 안). 잡 분 합계는 늘 수 있다 — 실행기마다 이미지를 따로 굽기 때문이다.
+  `@exclusive` 패스가 시험 순번 shard 와 섞이면 일꾼 하나 보장이 깨지기 때문이다. 실패 결과물은 `checks-test-results-<묶음>`·`e2e-test-results-<이름>`, pytest 조각의 junit 은 전부를 돈 실행이면 초록이어도 `pytest-junit-<조각>`(14일).
+  동시 잡은 plan 1 + checks 최대 8(static·pytest 6·web) + guard 3 + e2e 조각 + celery 1 + agent-grader 1 + 결과 1 — 공개 저장소 한도 20 을 넘는 만큼은 줄을 선다. 잡 분 합계는 늘 수 있다 — 실행기마다 이미지를 따로 굽기 때문이다.
 - **pnpm 저장소**·**Playwright 브라우저**(`e2e` 잡 호스트 설치, 키는 lockfile 해시·Playwright 버전)도 같은 규칙이다.
 - **10GB**: 키가 lockfile·Dockerfile 해시라 바뀔 때만 새 항목이 생기고, 안 쓰인 것은 GitHub 가 7일 뒤·한도 초과 때 오래된 것부터 지운다.
   `gh cache list` 합계를 가끔 본다.
