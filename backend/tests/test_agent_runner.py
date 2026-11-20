@@ -543,7 +543,8 @@ def test_seccomp_profile_does_not_open_clone3_or_setns() -> None:
 
 def test_only_the_agent_scorer_calls_the_runner() -> None:
     """실행기를 부르는 곳은 허용 목록뿐이다 — `core.agent_scoring`(#1000)과 완성도 리뷰 `scoring.quality`(#1001),
-    채점 서비스는 예외 이름만 들인다.
+    채점 서비스는 예외 이름만 들인다. 실행 틀 모듈은 `scoring.apps` 가 `core.agent_ports` 에 등록하고(#1085),
+    `core.agent_scoring` 은 거기서 꺼낸다.
     기본값(`CONTEST_SCORING_METHOD=single_call`)이면 그마저 타지 않는다(`test_agent_scoring.py`)."""
 
     callers = []
@@ -554,7 +555,9 @@ def test_only_the_agent_scorer_calls_the_runner() -> None:
         if "agent_runner" in text:
             callers.append(str(path.relative_to(REPO_ROOT)))
     allowed = {
+        "backend/core/agent_ports.py",
         "backend/core/agent_scoring.py",
+        "backend/scoring/apps.py",
         "backend/scoring/quality.py",
         "backend/scoring/services.py",
     }

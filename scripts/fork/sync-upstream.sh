@@ -55,7 +55,9 @@ body=$(printf '본 저장소 main %s..%s 를 당긴다(`scripts/fork/sync-upstre
 url=$(gh pr create --repo "$FORK" --base main --head "$branch" \
   --title "본 저장소 main 당겨 맞추기 ${new:0:12}" --body "$body")
 echo "$url"
-bash "$root/scripts/fork/enqueue.sh" "${url##*/}"
 cd "$root"
 git worktree remove --force "$wt"
+# 검사가 끝나기 전에는 대기열이 받지 않는다(「mergeability check has not yet completed」)
+gh pr checks "${url##*/}" --repo "$FORK" --watch --fail-fast >/dev/null
+bash "$root/scripts/fork/enqueue.sh" "${url##*/}"
 echo "대기열에 넣었다: $url"
