@@ -137,7 +137,13 @@ class ReleaseFlowTest(unittest.TestCase):
         self.assertIn("CODEMIT_E2E_PLAYWRIGHT_IMAGE: 1", job_block(hourly, "e2e"))
         # 조율자 점검(stall-check.sh)이 이 제목으로 찾는다 — 바꾸지 않는다
         self.assertIn('title="e2e 실패 — main 의 화면이 깨졌을 수 있다"', job_block(hourly, "notify"))
-        self.assertNotIn("actions/cache/save", hourly, "캐시 저장은 release 에서만")
+        # 이미지 층·pnpm 캐시 저장은 release 에서만 — 매시 e2e 가 저장하는 것은 조각 시간 기록(#1112) 하나다
+        saves = re.findall(r"uses: actions/cache/save@\S+[^\n]*\n\s+with:\n((?:\s{10}\S[^\n]*\n)+)", hourly)
+        self.assertEqual(len(saves), hourly.count("actions/cache/save"))
+        for block in saves:
+            self.assertRegex(block, r"key: e2e-durations-\$\{\{ github.run_id \}\}", "매시 e2e 가 저장하는 캐시는 시간 기록뿐")
+        self.assertIn("e2e_plan.py --all --durations .e2e-durations/record.json", job_block(hourly, "gate"))
+        self.assertIn("e2e_plan.py --base \"$base\" --durations .e2e-durations/record.json", plan)
 
     def test_pr_check_also_judges_the_merge_queue(self) -> None:
         on = re.search(r"(?ms)^on:\n(.*?)(?=^\S)", read(WORKFLOWS / "pr-check.yml"))
