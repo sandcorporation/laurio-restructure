@@ -103,14 +103,16 @@ jobs:
               e2e=$(sed -n 's/^E2E=//p' <<<"$e2e_plan"); e2e_matrix=$(sed -n 's/^MATRIX=//p' <<<"$e2e_plan")
             fi
           fi
-          echo "e2e=$e2e" >>"$GITHUB_OUTPUT"
-          echo "e2e_matrix=$e2e_matrix" >>"$GITHUB_OUTPUT"
-          echo "tests=$tests" >>"$GITHUB_OUTPUT"
-          echo "back=$back" >>"$GITHUB_OUTPUT"
-          echo "front=$front" >>"$GITHUB_OUTPUT"
-          echo "matrix=$matrix" >>"$GITHUB_OUTPUT"
-          echo "pytest_files=$pytest_files" >>"$GITHUB_OUTPUT"
-          echo "pytest_all=$pytest_all" >>"$GITHUB_OUTPUT"
+          {
+            echo "e2e=$e2e"
+            echo "e2e_matrix=$e2e_matrix"
+            echo "tests=$tests"
+            echo "back=$back"
+            echo "front=$front"
+            echo "matrix=$matrix"
+            echo "pytest_files=$pytest_files"
+            echo "pytest_all=$pytest_all"
+          } >>"$GITHUB_OUTPUT"
       - name: ADR 상태
         run: python3 scripts/check_adr_status.py
       - name: 공개해도 되는 HEAD 인가(내부 호스트·OCI 실값·워크플로 보안)
