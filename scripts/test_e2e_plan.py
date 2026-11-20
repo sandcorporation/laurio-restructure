@@ -85,15 +85,16 @@ class ShardsByRecordedTime(unittest.TestCase):
 
     def test_shards_are_balanced_by_time_not_count(self) -> None:
         # 공개: 1초짜리 12개, 강의실: 6초짜리 4개 — 수로 나누면 강의실 한 조각이 24초, 시간으로는 고르게
-        public = {f"e2e/a/p{i:02}.spec.ts": 1.0 for i in range(12)}
-        classroom = {f"e2e/classroom/c{i}.spec.ts": 6.0 for i in range(4)}
+        u = e2e_plan.SHARD_SECONDS / 15  # 합이 SHARD_SECONDS 의 2.4배가 되게
+        public = {f"e2e/a/p{i:02}.spec.ts": u for i in range(12)}
+        classroom = {f"e2e/classroom/c{i}.spec.ts": 6 * u for i in range(4)}
         present = fake_present(public, classroom)
         out = e2e_plan.shards(present, {"public": {"a"}, "operator": set(), "classroom": {"classroom"}}, {**public, **classroom})
         cost = {**public, **classroom}
         loads = [sum(cost[f] for f in s["paths"].split()) for s in out]
-        self.assertEqual(len(out), 3)  # 합 36초 / 15초 → 3조각
+        self.assertEqual(len(out), 3)  # 합 2.4 × SHARD_SECONDS → 3조각
         self.assertEqual(sorted(s["project"] for s in out), ["classroom", "classroom", "public"])
-        self.assertLessEqual(max(loads) - min(loads), 0.0)
+        self.assertLessEqual(max(loads) - min(loads), 1e-9)
 
     def test_new_spec_without_record_counts_as_the_average(self) -> None:
         present = fake_present({"e2e/a/old.spec.ts": 1, "e2e/a/new.spec.ts": 1}, {"e2e/classroom/c.spec.ts": 1})

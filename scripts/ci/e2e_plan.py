@@ -35,10 +35,11 @@ ROOT = Path(__file__).resolve().parents[2]
 E2E = ROOT / "frontend" / "e2e"
 PSEUDO_APP = "frontend"  # 백엔드 앱이 없는 시험 — 앞단이 바뀔 때만 돈다
 PROJECTS = ("public", "operator", "classroom")
-#: 조각 하나가 맡을 시험 시간(기록 기준, 초). 기록 합 ~130초 → 전부면 MAX_SHARDS. 조각마다 스택 굽기가 ~3.5분이라
-#: 조각 사이 차는 거의 시험 시간에서 난다(#1112 측정).
-SHARD_SECONDS = 15.0
-MAX_SHARDS = 8
+#: 조각 하나가 맡을 시험 시간(기록 기준, 초). 기록 합 ~130초 → 전부면 MAX_SHARDS. 층 캐시가 찬 뒤(#1116) 조각 하나의
+#: 시험 밖 준비(체크아웃·캐시 복원·굽기·띄우기·정리)가 121~187초(평균 149초)이고 시험은 조각당 12~25초다. 그 준비 표본으로
+#: 조각 수를 시뮬레이션하면 8→5조각에서 e2e 끝 중앙값이 +4초(p90 +6초)인데 e2e 실행기 시간은 ~34% 준다 — 그래서 25초·5조각.
+SHARD_SECONDS = 25.0
+MAX_SHARDS = 5
 TEST_CALL = re.compile(r"^\s*test(?:\.[a-z]+)*\(", re.MULTILINE)
 
 
