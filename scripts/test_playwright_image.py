@@ -24,7 +24,7 @@ class ThisRepo(unittest.TestCase):
 
     def test_the_workflow_runs_e2e_in_the_image_without_installing_system_packages(self) -> None:
         pr = (playwright_image.ROOT / ".github/workflows/pr-check.yml").read_text()
-        self.assertIn("CODEMIT_E2E_PLAYWRIGHT_IMAGE: 1", pr)
+        self.assertIn("CODEMIT_E2E_PLAYWRIGHT_IMAGE: ci", pr)
         self.assertNotIn("--with-deps", pr)
         self.assertNotIn("install-deps", pr)
 

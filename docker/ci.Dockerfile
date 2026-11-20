@@ -9,6 +9,15 @@
 # 같은 node:22 에서 가져온다.
 FROM node:22-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS node
 
+# e2e 의 Playwright(#1109 측정 ②) — 같은 node 바탕에 lockfile 판의 chromium 과 그 시스템 라이브러리를 굽는다.
+# `--target playwright` 로만 굽는다(이 파일의 기본 타깃은 맨 아래 CI 이미지 그대로).
+FROM node AS playwright
+ARG PLAYWRIGHT_VERSION
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN test -n "$PLAYWRIGHT_VERSION" \
+    && npx -y "playwright@${PLAYWRIGHT_VERSION}" install --with-deps chromium \
+    && rm -rf /var/lib/apt/lists/* /root/.npm
+
 FROM ghcr.io/astral-sh/uv:python3.14-bookworm-slim@sha256:7cf77f594be8042dab6daa9fe326f90962252268b4f120a7f5dccce4d947e6c1
 
 ENV UV_PROJECT_ENVIRONMENT=/opt/venv \

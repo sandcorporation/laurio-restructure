@@ -330,7 +330,7 @@ jobs:
       - name: e2e(e2e.sh)
         env:
           # Playwright 를 scripts/ci/playwright-image(판·다이제스트 고정, 판 ≠ lockfile 이면 실패)에서 — apt·브라우저 CDN 없음(#1109)
-          CODEMIT_E2E_PLAYWRIGHT_IMAGE: 1
+          CODEMIT_E2E_PLAYWRIGHT_IMAGE: ci
           # 호스팅 실행기는 코어가 적어(비공개 2·공개 4) 앱 셋·백엔드와 일꾼 둘이 다투면 3초 한도를 넘는다
           CODEMIT_E2E_WORKERS: 1
           CODEMIT_E2E_TARGETS: ${{ matrix.project }}

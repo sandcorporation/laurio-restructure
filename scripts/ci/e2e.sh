@@ -83,7 +83,17 @@ fi
 read_port() { "${C[@]}" port "$1" "$2" | head -n 1 | sed 's/.*://'; }
 
 pw_image=""; pw_pull=""
-if [ "${CODEMIT_E2E_PLAYWRIGHT_IMAGE:-}" = 1 ]; then
+if [ "${CODEMIT_E2E_PLAYWRIGHT_IMAGE:-}" = ci ]; then
+  # 측정 ②(#1109): CI 이미지(docker/ci.Dockerfile 의 playwright 타깃)를 여기서 굽는다 — 판은 lockfile 의 것
+  pw_version=$(grep -o '@playwright/test@[0-9.]*' pnpm-lock.yaml | head -1 | cut -d@ -f3)
+  pw_image=codemit-playwright:e2e
+  echo "Playwright 이미지 $pw_image (굽기, $pw_version)"
+  pw_started=$SECONDS
+  { docker buildx build --load --progress plain --target playwright --build-arg "PLAYWRIGHT_VERSION=$pw_version" \
+      ${CODEMIT_BK_CACHE:+--cache-from "type=local,src=$CODEMIT_BK_CACHE/ci"} \
+      -f docker/ci.Dockerfile -t "$pw_image" . && echo "굽기 $((SECONDS - pw_started))초"; } >test-results/playwright-pull.log 2>&1 &
+  pw_pull=$!
+elif [ "${CODEMIT_E2E_PLAYWRIGHT_IMAGE:-}" = 1 ]; then
   pw_image=$(python3 scripts/ci/playwright_image.py) || exit 1
   echo "Playwright 이미지 $pw_image"
   pw_started=$SECONDS
