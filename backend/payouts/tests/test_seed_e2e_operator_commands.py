@@ -376,3 +376,15 @@ def test_running_the_seed_twice_in_a_row_does_not_push_a_fresh_own_prefix_contes
     # (멱등하지 않다는 이 명령의 계약대로).
     assert first_titles <= second_titles
     assert len(second_titles) == 2
+
+
+def test_every_registered_e2e_seed_command_loads() -> None:
+    """등록부의 시드 명령은 모두 불러와진다 — 명령을 다른 앱으로 옮기고 형제 import 를 놓치면 e2e 시드만 500 으로 죽는다(#1089)."""
+    from django.core.management import get_commands, load_command_class
+
+    from core.e2e_seeds import E2E_SEED_REGISTRY
+
+    commands = get_commands()
+    for entry in E2E_SEED_REGISTRY.values():
+        assert entry.command in commands, entry.command
+        load_command_class(commands[entry.command], entry.command)
