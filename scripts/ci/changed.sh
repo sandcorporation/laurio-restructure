@@ -3,7 +3,7 @@
 #
 #   scripts/ci/changed.sh <기준 커밋> [끝 커밋=HEAD]   →  TESTS=0|1  BACK=0|1  FRONT=0|1
 #
-# 경로 표는 scripts/ci/paths.py 하나다(#1088 — e2e_plan·pytest_plan·verified_tree 와 같은 표). 묶음(#1082):
+# 경로 표는 scripts/ci/paths.py 하나다(#1088 — e2e_plan·pytest_plan 과 같은 표). 묶음(#1082):
 #   문서     .md · docs/                                 → 이것만이면 TESTS=0 (문서 검사만, 곧바로 초록)
 #   백엔드   backend/ · docker/ (uv.lock 포함)            → BACK=1 : pytest 조각·celery·agent-grader
 #   프런트   frontend/ · operator/ · classroom/ · packages/ → FRONT=1 : web (static 은 TESTS=1 이면 늘 돈다)

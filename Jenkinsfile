@@ -1,7 +1,7 @@
 // 운영 = production 브랜치 머리(#938, ADR-0077). 잡 `codemit/deploy`(Pipeline, 브랜치 지정자 `*/production`, GitHub push 웹훅)는
 // production 만 배포한다 — jenkins-shared `sandcorpDeploy` 의 `deployFrom`(README 「승격 브랜치에서 배포」, sandcorp-metrics 와 같다).
 //
-//   main push → GitHub Actions release.yml: 검사(pr-check.yml) → 이미지(image.yml, ubuntu-24.04-arm, 여섯) → production fast-forward
+//   병합 대기열(pr-check.yml, 판정 한 번) → main push → GitHub Actions release.yml: 이미지(image.yml, ubuntu-24.04-arm, 여섯) → production fast-forward
 //   production push → 여기: 굽지도 검사하지도 않는다. 여섯 이미지의 `ghcr.io/sandcorporation/codemit-<서비스>:<sha>` 가 있는지
 //                     짧게 보고(`imageWaitMinutes`), oracle 에서 `scripts/ci/deploy-prod.sh` — `deploy.sh prod` 의 preflight → plan →
 //                     image → up(겹쳐 바꾸기, 마이그레이션이 있으면 그 전에 pg_dump) → verify → health → reindex → mark → GlitchTip
