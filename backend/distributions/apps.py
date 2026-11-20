@@ -14,3 +14,10 @@ class DistributionsConfig(AppConfig):
 
         for spec in DISTRIBUTION_SCANS:
             register_scan(spec)
+
+        # 이의 화면이 묻는 「배분을 막고 있나」(#1086) — `appeals.ports`
+        from appeals.ports import DISTRIBUTION_HOLD
+
+        from .services import is_holding_distribution
+
+        DISTRIBUTION_HOLD.register(is_holding_distribution)

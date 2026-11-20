@@ -36,7 +36,7 @@ from django.db import close_old_connections, connection
 # 두고, 강의실이 등록한다(#1085).
 from core.agent_ports import class_vendor_key
 from core.agent_run_tokens import Grant, Refusal, Usage, authorize, record_usage
-from policies.runtime_settings import ScoringVendor, setting_value
+from core.runtime_settings_port import ScoringVendor, setting_value
 
 logger = logging.getLogger(__name__)
 

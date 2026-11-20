@@ -34,6 +34,8 @@ from django.core.management.base import BaseCommand
 from django.test import Client
 from django.utils import timezone
 
+from core.e2e_guard import refuse_in_deployed_environment
+
 from .seed_e2e_operator_queues import (
     DEADLINE_OFFSET,
     _RUN_ID_OVERRIDE,
@@ -43,7 +45,6 @@ from .seed_e2e_operator_queues import (
     _close_contest,
     _internal_headers,
     _publish_contest,
-    _refuse_in_deployed_environment,
     _submit,
     _verified_user,
 )
@@ -182,7 +183,7 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options) -> None:
-        _refuse_in_deployed_environment("seed_e2e_operator_appeal")
+        refuse_in_deployed_environment("seed_e2e_operator_appeal")
         run_id = options.get("run_id")
         token = _RUN_ID_OVERRIDE.set(run_id) if run_id else None
         try:
