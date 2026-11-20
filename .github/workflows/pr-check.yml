@@ -242,7 +242,6 @@ jobs:
           key: bk-classroom-${{ hashFiles('docker/classroom.Dockerfile','pnpm-lock.yaml') }}
           restore-keys: bk-classroom-
       - name: celery 브로커(celery-broker.sh)
-        env:
         run: bash scripts/ci/celery-broker.sh
 
   agent-grader:
