@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from core.events import FakeEventBus
 from notifications.models import NotificationType
@@ -23,7 +22,6 @@ from tests.classroom_scenarios import (
     auth_header,
     create_class,
     create_open_problem,
-    force_real_scoring_adapter,
     join_class,
     login,
     respond_to_models_endpoint,
@@ -96,12 +94,6 @@ def test_a_co_instructor_of_another_class_gets_no_signal(client, db, django_capt
 
 
 # --- 채점 키 알림 — 소유자에게만 ---------------------------------------------------
-
-
-@pytest.fixture
-def real_scoring():
-    with force_real_scoring_adapter():
-        yield
 
 
 def test_the_key_rejection_reaches_only_the_owner(client, db, monkeypatch, real_scoring):

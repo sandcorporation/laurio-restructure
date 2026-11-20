@@ -16,7 +16,7 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from accounts.models import SponsorProfile
-from contests.models import Category, Contest, DeliverableType
+from contests.models import Category, Contest
 
 
 @pytest.fixture
@@ -28,23 +28,8 @@ def sponsor(db):
 
 
 @pytest.fixture
-def games(db):
-    return Category.objects.create(name="게임")
-
-
-@pytest.fixture
 def productivity(db):
     return Category.objects.create(name="생산성")
-
-
-@pytest.fixture
-def web(db):
-    return DeliverableType.objects.create(name="웹 서비스", minimum_prize=2_000_000)
-
-
-@pytest.fixture
-def mobile(db):
-    return DeliverableType.objects.create(name="모바일 앱", minimum_prize=1_500_000)
 
 
 def _publish(sponsor, category, deliverable_types, *, title, prize, days):

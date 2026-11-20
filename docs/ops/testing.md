@@ -24,7 +24,8 @@
   되고, 위 앱·옆 앱의 주소는 404 다. 404 가 나면 그 시험은 통합이다.
 - 라우터·뷰가 어느 주소에 붙는지는 `backend/config/routes.py` 표 하나다. `config/api.py`·`config/urls.py` 와
   `tests/app_urls.py`(앱 시험 주소)가 같은 표를 읽는다. 라우터를 더하면 이 표에 더한다.
-- 픽스처·훅은 `backend/conftest.py`(루트)에 있다. 헬퍼(`tests/classroom_scenarios.py` 등)는 `from tests.… import`
+- 픽스처·훅은 `backend/conftest.py`(루트)에 있고, 한 앱의 여러 파일이 같은 몸으로 쓰는 픽스처는 그 앱의
+  `tests/conftest.py` 에 둔다(autouse 가 아닌 것으로 — 켜는 파일이 `usefixtures` 로 고른다). 헬퍼(`tests/classroom_scenarios.py` 등)는 `from tests.… import`
   로 그대로 쓴다.
 - 자리는 `python3 scripts/tests_layout.py plan` 이 정하고 `apply` 가 옮긴다 — 본 저장소를 당겨 `backend/tests/` 에
   새 시험이 생기면 다시 돌린다. 닿는 앱은 import(헬퍼·다른 시험 파일을 거친 것 포함)와 부르는 주소로 센다. 손으로

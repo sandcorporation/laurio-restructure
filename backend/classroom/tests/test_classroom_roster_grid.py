@@ -166,10 +166,6 @@ def _run_scan(client) -> dict:
     return response.json()
 
 
-def _member_row(grid: dict, member_id: int) -> dict:
-    return next(m for m in grid["members"] if m["id"] == member_id)
-
-
 def _cell(row: dict, problem_id: int) -> dict:
     return next(c for c in row["cells"] if c["problem_id"] == problem_id)
 

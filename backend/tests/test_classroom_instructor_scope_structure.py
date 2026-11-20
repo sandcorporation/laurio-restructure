@@ -346,7 +346,6 @@ _DIRECT_REFERENCE_FILES = sorted(
 #: 이 이름의 변수는 ConnectedApp 이다 — 그 `instructor`/`instructor_id` 는 연결된 앱의 주인(계정)이다.
 _CONNECTED_APP_RECEIVERS = {"grant"}
 
-_CONNECTED_APP_OWNER = "ConnectedApp 의 주인(계정)을 고른다 — Class 의 강사가 아니다(연결된 앱의 주인은 계정, #560)."
 
 #: (파일, 함수 이름) → 왜 소유자 자체를 뜻하는가.
 DIRECT_INSTRUCTOR_ALLOWLIST: dict[Path, dict[str, str]] = {

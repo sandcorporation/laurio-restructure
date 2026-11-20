@@ -14,7 +14,6 @@ import zipfile
 from datetime import timedelta
 
 import pytest
-from django.core.cache import caches
 from django.test import override_settings
 from django.utils import timezone
 
@@ -36,14 +35,9 @@ from tests.classroom_scenarios import (
 )
 from classroom.tests.test_classroom_connected_apps import _connect, _rpc, _set_clock
 
+pytestmark = pytest.mark.usefixtures("reset_rate_limits")
+
 CLASSES_URL = "/api/classroom/classes"
-
-
-@pytest.fixture(autouse=True)
-def _reset_rate_limits():
-    caches["rate_limits"].clear()
-    yield
-    caches["rate_limits"].clear()
 
 
 def _call(client, token: str, name: str, **arguments):
