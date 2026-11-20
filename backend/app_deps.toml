@@ -14,112 +14,93 @@
 group = "shared"
 uses = ["core"]
 plugs = []
-reads = []
 
 [appeals]
 group = "contest"
 uses = ["accounts", "contests", "core", "ledger", "notifications", "scoring", "submissions"]
-plugs = []
-reads = []
+plugs = ["contests"]
 
 [awards]
 group = "contest"
 uses = ["accounts", "contests", "core", "ledger", "policies", "scoring", "storage", "submissions", "verification"]
 plugs = ["contests", "core"]
-reads = []
 
 [classroom]
 group = "classroom"
 uses = ["accounts", "core", "notifications", "ops_metrics", "policies", "storage", "submissions"]
 plugs = ["accounts", "core", "submissions"]
-reads = []
 
 [contests]
 group = "contest"
 uses = ["accounts", "core", "ledger", "notifications", "policies", "storage", "submissions", "verification"]
-plugs = ["accounts", "core", "submissions"]
-reads = ["appeals", "awards", "distributions", "handovers", "scoring"]
+plugs = ["accounts", "core", "submissions", "verification"]
 
 [core]
 group = "shared"
 uses = []
 plugs = []
-reads = []
 
 [distributions]
 group = "contest"
 uses = ["accounts", "appeals", "contests", "core", "ledger", "policies", "scoring", "submissions"]
-plugs = ["appeals", "core"]
-reads = []
+plugs = ["appeals", "contests", "core"]
 
 [handovers]
 group = "contest"
 uses = ["accounts", "awards", "contests", "core", "ledger", "policies", "submissions"]
 plugs = ["awards", "core", "submissions"]
-reads = []
 
 [ledger]
 group = "contest"
 uses = ["core"]
 plugs = []
-reads = []
 
 [notifications]
 group = "shared"
 uses = ["accounts", "core", "storage"]
 plugs = ["core"]
-reads = []
 
 [ops_metrics]
 group = "shared"
 uses = ["core"]
 plugs = ["core"]
-reads = []
 
 [payments]
 group = "contest"
 uses = ["accounts", "contests", "core", "ledger", "policies", "verification"]
 plugs = ["contests", "core"]
-reads = []
 
 [payouts]
 group = "contest"
 uses = ["accounts", "appeals", "awards", "contests", "core", "distributions", "handovers", "ledger", "notifications", "payments", "policies", "scoring", "storage", "submissions", "verification"]
 plugs = ["accounts", "contests", "core"]
-reads = []
 
 [policies]
 group = "shared"
 uses = ["core"]
 plugs = ["core"]
-reads = []
 
 [repositories]
 group = "contest"
 uses = ["contests", "core", "submissions"]
 plugs = ["core"]
-reads = ["scoring"]
 
 [scoring]
 group = "contest"
 uses = ["contests", "core", "ledger", "notifications", "policies", "repositories", "storage", "submissions"]
-plugs = ["contests", "core"]
-reads = []
+plugs = ["contests", "core", "repositories"]
 
 [storage]
 group = "shared"
 uses = ["core"]
 plugs = []
-reads = []
 
 [submissions]
 group = "shared"
 uses = ["core", "policies", "storage"]
 plugs = ["storage"]
-reads = []
 
 [verification]
 group = "contest"
 uses = ["accounts", "core"]
 plugs = ["accounts", "core"]
-reads = ["contests"]

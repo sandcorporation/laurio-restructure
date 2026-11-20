@@ -1238,9 +1238,11 @@ def distribution_due_q(as_of, policy) -> Q:
     그 이하 `Payout`)을 만들려 시도하게 된다.
     """
 
+    from .ports import NO_DISTRIBUTION_FILTER  # distributions.apps 가 올린다(#1102)
+
     return Q(
+        NO_DISTRIBUTION_FILTER.get()(),
         status__in=Contest.Status.AWAITING_DISTRIBUTION.statuses,
         judging_ends_at__lte=as_of - timedelta(days=policy.distribution_wait_days),
-        distribution__isnull=True,
         is_free=False,
     )

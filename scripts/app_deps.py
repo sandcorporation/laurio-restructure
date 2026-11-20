@@ -5,7 +5,7 @@
     python3 scripts/app_deps.py affected FILE...       # 바뀐 파일 → 다시 돌 앱(줄마다 하나, 전부면 `ALL`)
     git diff --name-only origin/main... | python3 scripts/app_deps.py affected -
 
-결합은 세 갈래로 센다.
+결합은 두 갈래로 센다.
 
 - **쓴다(`uses`)** — 위 앱이 아래 앱을 부른다: import(함수 안 포함, `if TYPE_CHECKING:` 아래 제외), 모델 문자열
   `"app.Model"`, 다른 앱 모듈을 가리키는 dotted path 문자열, 다른 앱의 celery 작업 이름 문자열, 다른 앱을 가리키는
@@ -13,9 +13,8 @@
 - **꽂는다(`plugs`)** — 위 앱이 아래 앱의 자리에 제 구현을 올려, 아래 앱이 돌 때 위 앱 코드가 돈다: `Slot`·`Slots`
   `.register`, `register_*()`, 시그널 `.connect`·`@receiver`, `sender=` 로 남의 모델에 거는 것, 아래 앱이 읽는 설정의
   dotted path 가 위 앱을 가리키는 것. import 에는 안 보이고, 빠뜨리면 선택 실행이 아래 앱 시험을 놓친다.
-- **읽는다(`reads`)** — 아래 앱이 Django 역관계로 위 앱의 행을 읽는다(`select_related("score")`,
-  `user__sponsor_profile__contests__…`). import 층은 한 방향이지만 데이터는 거슬러 묶인 자리라, 순환 검사에서 빼고
-  선택 실행에는 넣는다. 갚을 빚이다 — 늘리지 않는다.
+아래 앱이 Django 역관계로 위 앱의 행을 걷는 ORM 경로(`select_related("score")`)는 받을 칸이 없다 — `uses` 에 적으면
+순환이다. 위 앱이 관계 이름과 판정 함수를 아래 앱의 자리에 올린다(#1102, `contests.ports.NEXT_ACTION_RELATIONS`).
 
 ORM 경로는 모델 관계를 알아야 해서 Django 가 뜬 경계 시험(`backend/tests/test_app_boundaries.py`)만 센다.
 """
@@ -47,7 +46,7 @@ from app_import_cycles import (  # noqa: E402 — 같은 폴더의 분석기를 
 TABLE = BACKEND / "app_deps.toml"
 SETTINGS = BACKEND / "config" / "settings.py"
 GROUPS = ("shared", "contest", "classroom")
-KINDS = ("uses", "plugs", "reads")
+KINDS = ("uses", "plugs")
 #: 다시 돌 앱을 고를 수 없는 바뀐 파일(config/·tests/·pyproject·이 표 …) — 모든 앱이 기댄다
 ALL = "ALL"
 #: 이 부름의 문자열 인자는 결합이 아니다 — `Slot("이름", "ops_metrics.apps")` 의 둘째 인자는 올리는 곳을 적은 글이고
@@ -348,7 +347,6 @@ class Declared:
     group: str
     uses: frozenset[str] = frozenset()
     plugs: frozenset[str] = frozenset()
-    reads: frozenset[str] = frozenset()
 
 
 def load_table(path: Path = TABLE) -> dict[str, Declared]:
@@ -386,12 +384,10 @@ def problems(
     for app, d in sorted(table.items()):
         if d.group not in GROUPS:
             out.append(f"{app}: group 은 {GROUPS} 중 하나다 — {d.group!r}")
-        for dst in sorted((d.uses | d.plugs | d.reads) - set(table)):
+        for dst in sorted((d.uses | d.plugs) - set(table)):
             out.append(f"{app}: 표에 없는 앱 {dst} 를 적었다")
-        if app in d.uses | d.plugs | d.reads:
+        if app in d.uses | d.plugs:
             out.append(f"{app}: 저 자신을 적었다")
-        for dst in sorted(d.uses & d.reads):
-            out.append(f"{app}: {dst} 를 uses 와 reads 에 둘 다 적었다 — 아래 앱이면 uses 만")
 
     seen: dict[tuple[str, str, str], list[Coupling]] = defaultdict(list)
     for c in found:
@@ -400,21 +396,25 @@ def problems(
         d = table.get(src)
         if d is None:
             continue
-        allowed = d.uses | d.reads if kind == "orm" else d.plugs if kind == "plugs" else d.uses
+        allowed = d.plugs if kind == "plugs" else d.uses
         if dst not in allowed:
-            column = "uses(위 앱이면 reads)" if kind == "orm" else kind
             sites = ", ".join(f"{c.where()}({c.how})" for c in cs[:4]) + (" …" if len(cs) > 4 else "")
-            out.append(f"{src} → {dst}: 선언 밖 결합 — {sites}. backend/app_deps.toml 의 {src} {column} 에 적거나 결합을 푼다")
+            fix = (
+                f"{dst} 가 {src} 아래면 {src} uses 에 적고, 위면 관계 이름을 {dst} 가 {src} 의 자리에 올린다"
+                f"(contests.ports.NEXT_ACTION_RELATIONS 꼴)"
+                if kind == "orm"
+                else f"backend/app_deps.toml 의 {src} {kind} 에 적거나 결합을 푼다"
+            )
+            out.append(f"{src} → {dst}: 선언 밖 결합 — {sites}. {fix}")
 
     backed = {(s, d, k) for (s, d, k) in seen}
     for app, d in sorted(table.items()):
         stale = {
             "uses": {x for x in d.uses if (app, x, "uses") not in backed and (app, x, "orm") not in backed},
             "plugs": {x for x in d.plugs if (app, x, "plugs") not in backed},
-            "reads": {x for x in d.reads if (app, x, "orm") not in backed},
         }
         if not orm_counted:
-            stale["uses"], stale["reads"] = set(), set()
+            stale["uses"] = set()
         for kind, xs in stale.items():
             out += [f"{app}.{kind} 의 {x}: 코드에 그런 결합이 없다 — 표에서 지운다(선언은 좁게)" for x in sorted(xs)]
 
@@ -433,7 +433,7 @@ def group_problems(table: dict[str, Declared]) -> list[str]:
 
     out: list[str] = []
     for app, d in sorted(table.items()):
-        for dst in sorted(d.uses | d.plugs | d.reads):
+        for dst in sorted(d.uses | d.plugs):
             other = table.get(dst)
             if other is None:
                 continue
@@ -445,14 +445,11 @@ def group_problems(table: dict[str, Declared]) -> list[str]:
 
 
 def draft(found: Iterable[Coupling], table: dict[str, Declared]) -> str:
-    """지금 코드가 말하는 표. ORM 경로는 Django 없이 못 세므로 표에 적힌 reads 를 그대로 옮긴다."""
+    """지금 코드가 말하는 표. ORM 경로는 Django 없이 못 센다 — 아래 앱으로 걷는 ORM 경로는 import 와 겹쳐 대개 잡힌다."""
 
     acc: dict[str, dict[str, set[str]]] = {app: {k: set() for k in KINDS} for app in sorted(apps())}
     for c in found:
         acc[c.src]["uses" if c.kind == "orm" else c.kind].add(c.dst)
-    for app, d in table.items():
-        if app in acc:
-            acc[app]["reads"] |= d.reads
     lines: list[str] = []
     for app, kinds in sorted(acc.items()):
         lines += [f"[{app}]", f'group = "{table[app].group if app in table else "?"}"']
@@ -467,14 +464,14 @@ def draft(found: Iterable[Coupling], table: dict[str, Declared]) -> str:
 def affected(changed: Iterable[str], table: dict[str, Declared]) -> set[str] | None:
     """바뀐 파일(저장소 기준 경로) → 시험을 다시 돌 앱. 고를 수 없으면 None(전부).
 
-    바뀐 앱, 그 앱을 쓰는·읽는 앱(닫힘), 그리고 그 앱들이 꽂힌 앱 — 꽂힌 앱은 제 시험만 다시 돌고 거기서 더 번지지
+    바뀐 앱, 그 앱을 쓰는 앱(닫힘), 그리고 그 앱들이 꽂힌 앱 — 꽂힌 앱은 제 시험만 다시 돌고 거기서 더 번지지
     않는다. 꽂힌 자리는 그 앱 코드가 부르고, 그 앱을 쓰는 앱마다 번지면 모두가 기대는 `core` 의 등록부(스캔·지표) 탓에
     무엇을 바꿔도 전부가 된다. backend 밖(프런트·문서)은 고르지 않는다.
     """
 
     users: dict[str, set[str]] = defaultdict(set)
     for app, d in table.items():
-        for dst in d.uses | d.reads:
+        for dst in d.uses:
             users[dst].add(app)
 
     seeds: set[str] = set()

@@ -58,6 +58,7 @@ from notifications.services import notify_safely as _safe_notify
 from policies.scope import current_policy
 
 from .models import Contest
+from .ports import NO_DISTRIBUTION_FILTER  # distributions.apps 가 올린다(#1102)
 
 logger = logging.getLogger(__name__)
 
@@ -226,8 +227,8 @@ def _final_warning_candidates(as_of, ctx):
         + timedelta(days=policy.distribution_final_warning_lead_days)
     )
     return Contest.objects.filter(
+        NO_DISTRIBUTION_FILTER.get()(),
         status__in=Contest.Status.AWAITING_DISTRIBUTION.statuses,
-        distribution__isnull=True,
         distribution_final_warning_sent_at__isnull=True,
         judging_ends_at__isnull=False,
         judging_ends_at__lte=cutoff,

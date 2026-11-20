@@ -107,6 +107,13 @@ class ContestsConfig(AppConfig):
         # 바뀌지 않는다.
         from .lifecycle_notifications import LIFECYCLE_SCANS
 
+        # 휴면 판정의 마지막 행위 시각에 개최·제출을 더한다(#1102) — 본인확인 앱이 공모전 행을 직접 걷지 않게.
+        from verification.ports import LAST_ACTIVITY
+
+        from .last_activity import last_activity_expressions
+
+        LAST_ACTIVITY.register("contests", last_activity_expressions)
+
         for lifecycle_spec in LIFECYCLE_SCANS:
             register_scan(lifecycle_spec)
 

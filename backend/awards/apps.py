@@ -27,6 +27,16 @@ class AwardsConfig(AppConfig):
 
         AWARD_SUBMISSION.register(award_submission)
 
+        # 공모전 판정·운영자 무료 목록이 보는 선정 사실(#1102) — 공모전 앱이 `award` 관계를 직접 적지 않게.
+        from contests import ports
+
+        from . import participation
+
+        ports.AWARDED_SUBMISSION_ID.register(participation.awarded_submission_id)
+        ports.FREE_CONTEST_WINNER.register(participation.free_contest_winner)
+        ports.NEXT_ACTION_RELATIONS.register("awards", participation.NEXT_ACTION_RELATIONS)
+        ports.FREE_CONTEST_RELATIONS.register("awards", participation.FREE_CONTEST_RELATIONS)
+
         # 선정 결과 알림 복구 스캔(#19, #138) — #1086 에서 contests 에서 옮겼다(이름 그대로)
         from core.scans import register_scan
 

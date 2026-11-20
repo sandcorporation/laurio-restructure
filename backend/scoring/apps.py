@@ -48,3 +48,13 @@ class ScoringConfig(AppConfig):
         ports.RANKED_REVIEWS.register(ranked_reviews)
         ports.BONUS_SCORES.register(bonus_scores)
         ports.SAVE_BONUS_SCORE.register(save_bonus_score)
+
+        # 공모전 판정·저장소 스캔이 보는 채점 사실(#1102) — 아래 앱이 `score` 관계를 직접 적지 않게.
+        from repositories.ports import STILL_TO_SCORE
+
+        from . import participation
+
+        ports.IS_SCORED.register(participation.is_scored)
+        ports.NEXT_ACTION_RELATIONS.register("scoring", participation.NEXT_ACTION_RELATIONS)
+        ports.OWN_SCORE_RELATIONS.register("scoring", participation.OWN_SCORE_RELATIONS)
+        STILL_TO_SCORE.register(participation.still_to_score)
