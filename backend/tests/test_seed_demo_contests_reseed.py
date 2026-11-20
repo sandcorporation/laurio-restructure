@@ -232,4 +232,4 @@ def test_only_the_demo_seed_writes_the_marker(backend_sources):
     writers = sorted(
         str(source.relative) for source in backend_sources if pattern.search(source.text)
     )
-    assert writers == ["contests/management/commands/seed_demo_contests.py"]
+    assert writers == ["awards/management/commands/seed_demo_contests.py"]

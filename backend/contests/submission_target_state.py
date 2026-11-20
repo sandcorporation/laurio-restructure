@@ -7,13 +7,13 @@
 
 from __future__ import annotations
 
-from awards.services import sponsor_user_id_if_awarded
 from core.clock import Clock
 from storage.policy import TargetState, Visibility
 from submissions.resolvers import DENY_TARGET
 from submissions.target_refs import BUILD_ASSET_SLOT, SOURCE_SLOT
 
 from .models import Contest
+from .ports import awarded_sponsor_user_id
 
 
 def resolve_contest_submission(parts: list[str]) -> TargetState:
@@ -37,7 +37,7 @@ def resolve_contest_submission(parts: list[str]) -> TargetState:
         # 볼 수 있다. 빌드 자산(BUILD_ASSET_SLOT)도 같은 규율을 따른다 — Award된
         # Submission의 개발자만 올릴 수 있고(owner_id), Award된 뒤에만 Sponsor가
         # 볼 수 있다(additional_viewer_ids).
-        sponsor_user_id = sponsor_user_id_if_awarded(contest_id, developer_user_id)
+        sponsor_user_id = awarded_sponsor_user_id(contest_id, developer_user_id)
         if sponsor_user_id is None:
             return TargetState(visibility=Visibility.PRIVATE, owner_id=developer_user_id)
         return TargetState(

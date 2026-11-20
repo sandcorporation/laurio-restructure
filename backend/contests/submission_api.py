@@ -57,15 +57,11 @@ from ninja.errors import HttpError
 from accounts.middleware import jwt_auth
 from accounts.models import DeveloperProfile
 from accounts.sanitize import sanitize_free_text
-from awards.models import Award
 from core.clock import Clock
 from core.keyset import decode_cursor, keyset_page
 from policies.scope import current_policy
 from policies.services import get_current_policy
 from core.quality_review import quality_view
-from scoring.models import SubmissionBonusScore
-from scoring.quality import bonus_scores, ranked_reviews
-from scoring.services import upload_source_over_budget
 from storage.adapters import get_storage_adapter
 from storage.filenames import build_download_filename
 from storage.policy import get_download_ttl_resolver
@@ -87,6 +83,7 @@ from verification.models import Verification
 
 from .images import ALLOWED_CONTEST_IMAGE_CONTENT_TYPES
 from .models import Contest, ContestSubmission, Evidence, Requirement, RequirementResponse
+from .ports import bonus_scores, is_submission_awarded, ranked_reviews, save_bonus_score, upload_source_over_budget
 from .submission_participation import next_action_for
 from .submission_retention import demo_video_destroy_at
 from .submission_schemas import (
@@ -909,7 +906,7 @@ def _serialize(
     # 뿐이고, 그걸 들여다볼 로그인 정보까지 공개 범위에 들어가지는 않는다(#10 리뷰
     # 지적). 그래서 자료 자체는 마감 후 공개되어도 계정은 본인·Sponsor로만 좁힌다.
     assets = list(submission.assets.all())
-    is_awarded = is_sponsor and Award.objects.filter(submission_id=submission.id).exists()
+    is_awarded = is_sponsor and is_submission_awarded(submission.id)
     visible_kinds = _visible_asset_kinds(
         is_owner=is_owner,
         is_sponsor=is_sponsor,
@@ -1582,11 +1579,7 @@ def rate_bonus(request: HttpRequest, contest_id: int, submission_id: int, requir
     if not ContestSubmission.objects.filter(id=submission_id, contest=contest).exists():
         raise HttpError(404, "제출물을 찾을 수 없습니다.")
     memo = payload.memo.strip()
-    SubmissionBonusScore.objects.update_or_create(
-        submission_id=submission_id,
-        requirement=requirement,
-        defaults={"score": payload.score, "memo": memo, "rated_by_id": request.auth_user.id, "rated_at": Clock.now()},
-    )
+    save_bonus_score(submission_id, requirement, payload.score, memo, request.auth_user.id, Clock.now())
     return 200, BonusScoreOut(requirement_id=requirement.id, score=payload.score, memo=memo, rated=True)
 
 
