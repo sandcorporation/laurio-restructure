@@ -10,6 +10,8 @@ import importlib.util
 import sys
 from pathlib import Path
 
+import pytest
+
 from accounts.signals import user_became_dormant, user_withdrawn
 from core.connected_app_signals import revoke_on_dormancy, revoke_on_withdrawal
 from core.ops_ports import OPS_RECORDER, REQUEST_RECORDER, SCAN_SCOPE
@@ -41,10 +43,17 @@ def _cycles_script():
     return module
 
 
-def test_no_app_is_in_a_cycle_even_counting_function_imports_and_model_strings():
+@pytest.fixture(scope="module")
+def tangled_graph():
+    """저장소 전체를 AST 로 읽는 일은 픽스처에서 한 번 — 시험 본문의 CPU 한도 밖이다(#1086, 본문에서 2.03초)."""
+
     cycles = _cycles_script()
     deps, sites = cycles.graph(everything=True)
-    tangled = [comp for comp in cycles.strongly_connected(deps) if len(comp) > 1]
+    return [comp for comp in cycles.strongly_connected(deps) if len(comp) > 1], sites
+
+
+def test_no_app_is_in_a_cycle_even_counting_function_imports_and_model_strings(tangled_graph):
+    tangled, sites = tangled_graph
     assert tangled == [], [
         f"{src} → {dst}: {where}" for comp in tangled for (src, dst), where in sites.items() if {src, dst} <= set(comp)
     ]

@@ -180,7 +180,7 @@ INSTALLED_APPS = [
     "payouts",
     "appeals",
     # 강의실(ADR-0037). 첫 삽 — 모델은 아직 없다(#275). 경계는 이 앱이 서는
-    # 순간부터 물게 하려고 `tests/test_app_boundaries.py` 의 분류표에 먼저
+    # 순간부터 물게 하려고 분류표(지금은 `app_deps.toml`, #1086)에 먼저
     # 이름을 적어 뒀다.
     "classroom",
     "ops_metrics",
