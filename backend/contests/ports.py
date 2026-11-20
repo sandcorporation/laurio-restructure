@@ -2,6 +2,8 @@
 
 `payments.Payment` 는 `Contest` 를 FK 로 가리키는 위 층 모델이다. 공모전 API 가 결제 행을 직접 읽으려고
 `payments` 를 import 하면 둘이 한 순환이 된다. 그래서 결제 쪽 질의 둘은 `payments.apps` 가 여기에 올린다.
+Award(`awards.apps`)와 채점·완성도·가산(`scoring.apps`)도 같은 까닭으로 여기서 받는다 — 둘 다 `ContestSubmission`
+을 FK 로 가리키는 위 층이다.
 """
 
 from __future__ import annotations
@@ -12,7 +14,11 @@ from typing import TYPE_CHECKING
 from core.registry import Slot
 
 if TYPE_CHECKING:
-    from contests.models import Contest
+    from datetime import datetime
+
+    from contests.models import Contest, ContestSubmission, Requirement
+    from core.quality_review import BonusScore, QualityTotal
+    from scoring.models import SubmissionQualityReview
 
 #: `payments.services.sync_requested_payment_prize` — 진행 중(REQUESTED) 결제의 상금 스냅샷을 지금 상금으로
 SYNC_REQUESTED_PAYMENT_PRIZE: Slot[Callable[["Contest"], None]] = Slot("진행 중 결제 상금 맞추기", "payments.apps")
@@ -27,3 +33,54 @@ def sync_requested_payment_prize(contest: Contest) -> None:
 
 def has_refunded_payment(contest: Contest) -> bool:
     return HAS_REFUNDED_PAYMENT.get()(contest)
+
+
+#: `awards.services.sponsor_user_id_if_awarded` — 이 Contest 에서 이 Developer 가 선정됐으면 Sponsor 의 User pk
+AWARDED_SPONSOR_USER_ID: Slot[Callable[[int, int], "int | None"]] = Slot("선정된 제출의 Sponsor", "awards.apps")
+
+#: `awards.services.is_submission_awarded` — 이 제출에 Award 가 있나
+IS_SUBMISSION_AWARDED: Slot[Callable[[int], bool]] = Slot("제출 선정 여부", "awards.apps")
+
+#: `scoring.services.upload_source_over_budget` — 올린 소스가 채점 한도를 넘겠나(#989 B)
+UPLOAD_SOURCE_OVER_BUDGET: Slot[Callable[["ContestSubmission"], bool]] = Slot("소스 채점 한도 어림", "scoring.apps")
+
+#: `scoring.quality.ranked_reviews` — 제출 id → (완성도 기록, 합계, 순위)
+RANKED_REVIEWS: Slot[
+    Callable[[int, list[int]], "dict[int, tuple[SubmissionQualityReview, QualityTotal, int]]"]
+] = Slot("완성도 순위", "scoring.apps")
+
+#: `scoring.quality.bonus_scores` — 제출 id → 가산 항목마다의 개최자 점수(#905)
+BONUS_SCORES: Slot[Callable[[int, list[int]], "dict[int, list[BonusScore]]"]] = Slot("가산 점수", "scoring.apps")
+
+#: `scoring.quality.save_bonus_score` — 가산 하나를 덮어쓴다(#905)
+SAVE_BONUS_SCORE: Slot[Callable[[int, "Requirement", int, str, int, "datetime"], None]] = Slot(
+    "가산 점수 저장", "scoring.apps"
+)
+
+
+def awarded_sponsor_user_id(contest_id: int, developer_user_id: int) -> int | None:
+    return AWARDED_SPONSOR_USER_ID.get()(contest_id, developer_user_id)
+
+
+def is_submission_awarded(submission_id: int) -> bool:
+    return IS_SUBMISSION_AWARDED.get()(submission_id)
+
+
+def upload_source_over_budget(submission: ContestSubmission) -> bool:
+    return UPLOAD_SOURCE_OVER_BUDGET.get()(submission)
+
+
+def ranked_reviews(
+    contest_id: int, submission_ids: list[int]
+) -> dict[int, tuple[SubmissionQualityReview, QualityTotal, int]]:
+    return RANKED_REVIEWS.get()(contest_id, submission_ids)
+
+
+def bonus_scores(contest_id: int, submission_ids: list[int]) -> dict[int, list[BonusScore]]:
+    return BONUS_SCORES.get()(contest_id, submission_ids)
+
+
+def save_bonus_score(
+    submission_id: int, requirement: Requirement, score: int, memo: str, rated_by_id: int, rated_at: datetime
+) -> None:
+    SAVE_BONUS_SCORE.get()(submission_id, requirement, score, memo, rated_by_id, rated_at)
