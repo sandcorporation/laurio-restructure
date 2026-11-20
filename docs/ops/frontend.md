@@ -27,8 +27,8 @@ Next.js + React. 저장소 루트가 pnpm 워크스페이스다(운영자 앱 04
 테스트 시임은 **앱마다 하나**다(ADR-0021·0026). `docker compose -f
 docker/compose.dev.yaml up` 으로 세 앱이 다 뜬 스택을 띄운 뒤 `pnpm --dir frontend test`
 로 Playwright 가 프로젝트 셋으로 세 앱을 한 번에 친다(공개 앱 스펙은
-`frontend/e2e/*.spec.ts`, 운영자 앱 스펙은 `frontend/e2e/operator/*.spec.ts`, 강의실
-스펙은 `frontend/e2e/classroom/*.spec.ts` — `playwright.config.ts` 가 프로젝트마다 다른
+`frontend/e2e/<앱>/*.spec.ts`, 운영자 앱 스펙은 `frontend/e2e/operator/<앱>/*.spec.ts`, 강의실
+스펙은 `frontend/e2e/classroom/*.spec.ts`(폴더 이름 = 앱 표시: `backend/app_deps.toml` 의 앱 또는 `frontend`, `scripts/test_e2e_plan.py` 가 지킨다) — `playwright.config.ts` 가 프로젝트마다 다른
 `testDir`·`baseURL` 을 준다). `CODEMIT_E2E_BASE_URL`/`CODEMIT_OPERATOR_E2E_BASE_URL`/
 `CODEMIT_CLASSROOM_E2E_BASE_URL` 로 각 프로젝트의 `baseURL` 을 바꿀 수 있다(기본값은 위
 포트 표와 같다). `pnpm --dir frontend typecheck`/`pnpm --dir operator typecheck`/

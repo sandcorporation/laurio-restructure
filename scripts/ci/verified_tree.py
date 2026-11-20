@@ -88,6 +88,8 @@ def job_role(name: str) -> str:
         return "checks-unresolved"
     if name in ("celery", "agent-grader"):
         return name
+    if name.startswith("e2e"):  # 바뀐 앱의 시험만 도는 PR 은 조각이 없거나 일부다(#1089) — 대기열이 전부를 돈다
+        return "e2e"
     return "other"
 
 
@@ -121,7 +123,7 @@ def run_is_full_green(run: Run, plan: tuple[str, str, str] | None = None) -> str
     for job in run.jobs:
         role = job_role(job.name)
         seen.add(role)
-        if role == "guard":
+        if role in ("guard", "e2e"):
             ok = job.conclusion in ("success", "skipped")
         elif role in need or role == "other":
             ok = job.conclusion == "success"
