@@ -228,43 +228,44 @@ ADR-0018 은 **운영**에서 세션이 Redis 에 산다고 정한 것이고, �
 scripts/test.sh backend tests/test_x.py   # db 하나만 띄우고(스크립트가 한다) 그 위에서 돈다
 ```
 
-**앱 경계는 테스트가 지킨다**(#269, ADR-0037). `tests/test_app_boundaries.py` 가 백엔드
-소스를 AST 로 훑어 앱 사이의 참조를 본다. 규칙이 둘이고 **강도가 다르다**:
+**앱 경계는 선언 표와 테스트가 지킨다**(#1086, 처음은 #269·ADR-0037). `backend/app_deps.toml` 이 앱마다
+`group`(shared·contest·classroom)과 세 칸을 적는다 — `uses`(부르는 아래 앱), `plugs`(제 구현을 올리는 아래 앱:
+`Slot`·`Slots.register`·`register_*()`·시그널 `connect`·`@receiver`·`sender=`, 아래 앱이 읽는 설정의 dotted path 가
+이 앱을 가리키는 것), `reads`(Django 역관계로 읽는 **위** 앱의 행 — `select_related("score")`·
+`user__sponsor_profile__contests__…`). `tests/test_app_boundaries.py` 가 `scripts/app_deps.py` 로 코드를 훑어
+(import 는 함수 안까지, `"app.Model"`·다른 앱 모듈의 dotted path·celery 작업 이름 문자열, 설정 이름, ORM 경로) 표와
+맞댄다:
 
-- **강의실 ↮ 공모전 가족은 양방향으로 막힌다 — 예외가 없다.** 최상단이든 함수 안이든,
-  `import` 든 Django 가 import 없이 앱을 묶는 길(`ForeignKey("contests.Contest")` 꼴
-  문자열·`apps.get_model`)이든 걸린다. 표시로 열 수 있는 문이 하나라도 있으면 마감에
-  몰린 사람이 그 문을 쓴다.
-- **공유층**(`accounts`·`core`·`policies`·`storage`·`notifications`·`submissions`·`ops_metrics`,
-  #270 이 `submissions` 를, #827 이 운영 지표 집계를 더했다)**이 기능 앱을 부르면 막히되, 같은 줄이나 바로 앞 줄의
-  `APP-BOUNDARY-EXCEPTION: <이유>` 로 열린다** — **이유가 비면 표시 자체가
-  실패한다**(`scripts/check_screen_language.py` 와 같은 관용구). 시드·백필 관리 명령이 달던 예외 13곳은
-  그 명령을 내용이 속한 공모전 가족 앱(`appeals`·`contests`)으로 옮기며 전부
-  사라졌다 — 등록부(`core.e2e_seeds`)가 명령의 위치를 모르므로 이름은 그대로다.
-  공모전 수명주기 알림(`notifications.lifecycle` → `contests.lifecycle_notifications`)도
-  같은 이유로 옮겼다. #1086 에서 탈퇴 판정이 기능 앱에 묻던 자리(공모전·지급·강의실·
-  신원 파기)는 `accounts.ports` 의 등록 자리로 뒤집혔고, 휴면 신원 파기 스캔은
-  본인확인 기록을 다루는 `verification.dormancy` 로 옮겼다. **지금 실제 표시는
-  1곳**(`accounts/middleware.py`)이다.
-  `grep -rn "APP-BOUNDARY-EXCEPTION" backend/` 로 나오는 숫자가 경계의 건강
-  지표다 — 늘면 공유층이 기능으로 오염되는 중이라는 뜻이다. 그 grep 에는 검사기 자신이
-  들고 있는 문자열(`tests/test_app_boundaries.py`)과 관용구를 설명하는 문장도 나오니,
-  세려면 검사기와 문서를 뺀다.
+- 코드의 결합이 표에 없으면 빨갛고, **표의 선언이 코드에 없어도 빨갛다** — 선언은 좁게 둔다.
+- `uses`·`plugs` 가 순환이면 빨갛다(둘 다 위 → 아래). `reads` 는 순환 검사에서 빼고 선택 실행에는 넣는다 — import
+  층은 한 방향이지만 데이터가 거슬러 묶인 빚이다(지금 8칸: contests 가 appeals·awards·distributions·handovers·scoring,
+  repositories 가 scoring, verification 이 contests). 늘리지 않는다.
+- 공유층(`group = "shared"`)은 어느 칸으로도 기능 앱에 묶이지 않는다 — 기능 앱이 공유층 자리에 꽂는다. 강의실 ↮
+  공모전 가족은 어느 칸으로도 막힌다(ADR-0037).
+- **`APP-BOUNDARY-EXCEPTION` 표식은 받지 않는다**(이유가 있어도). 마지막 표식(`accounts/middleware.py`, 공유층끼리라
+  처음부터 필요 없던 것)을 #1086 이 지웠다. 결합은 표에 적거나 `core.registry` 자리로 뒤집는다.
+
+고칠 때는 `python3 scripts/app_deps.py check`(Django 없이 — ORM 경로만 빼고 같은 판정), `draft`(지금 코드가 말하는
+표). **바뀐 파일 → 다시 돌 앱**은 `python3 scripts/app_deps.py affected <파일…>`(`-` 면 표준 입력): 바뀐 앱과 그 앱을
+쓰는·읽는 앱(닫힘), 그리고 그 앱들이 꽂힌 앱(한 단계 — 모두가 꽂히는 `core` 등록부에서 번지면 늘 전부가 된다).
+`backend/` 안 앱 밖(`config/`·`tests/`·`pyproject.toml`·이 표)이 바뀌면 `ALL`, `backend/` 밖은 고르지 않는다.
+
+**공개 모듈**(#1086). 다른 앱이 부르는 자리는 그 앱의 최상위 모듈 중 이름이 `_` 로 시작하지 않는 것이다 —
+`models`(읽기·FK), `ports`(그 앱이 위 앱에게 여는 등록 자리, `core.registry.Slot`·`Slots`), `signals`, 그리고 쓰는
+앱이 실제로 부르는 서비스 모듈. 아래 앱이 위 앱 코드를 돌려야 하면 import 하지 않고 `ports` 에 자리를 두고 위 앱이
+`AppConfig.ready()` 에서 올린다(`plugs`). `_` 로 시작하는 모듈·`management/`·`migrations/`·`tests/` 는 그 앱 안에서만
+쓴다. 새 앱 사이 부름은 먼저 표에 한 칸을 더하는 것으로 시작한다 — 그 칸이 순환이나 무리 규칙에 걸리면 부름의
+방향이 틀린 것이다.
 
 **앱 import 순환은 `python3 scripts/app_import_cycles.py` 로 센다**(#1085, spec #1079) — 모듈 최상단 import 만
 세어 강결합 덩어리(서로 닿는 앱 묶음)의 크기와 구성을 보이고, `--edges` 는 덩어리마다 그 안의 import 자리를
-파일:줄로 보인다. 공유층이 기능 앱을 부르던 다섯 자리를 기능 앱이 등록하는 꼴로 뒤집어(`core.agent_ports`,
-`submissions.resolvers.TARGET_SHAPES` — 자리는 한 모양 `core.registry.Slot`·`Slots`) 18앱 한 덩어리가 8앱(appeals·awards·contests·distributions·handovers·
-payments·payouts·scoring)과 4앱(core·policies·storage·submissions)으로 갈렸다.
-`--all` 은 의존 방향을 센다 — 함수 안 import 와 `"app.Model"` 문자열(FK·`get_model`)까지 넣는다(#1086). 공유층은
-`--all` 로도 순환이 없다: `core` 가 운영 지표·정책을 부르는 셋은 `core.ops_ports` 자리로, 탈퇴·휴면 때 연결된 앱
-허락을 끊는 시그널 연결은 시그널을 가진 `accounts.apps` 로 옮겼다. 공모전 가족도 `--all` 로 순환이 없다 — 층은
-아래부터 contests → payments·scoring·appeals → awards → handovers → distributions → payouts 이고, 아래가 위를 부르던
-자리는 `contests.ports`·`awards.ports` 자리로, 위 모델을 읽던 스캔·질의는 그 모델을 가진 앱으로 옮겼다.
-`tests/test_shared_layer_ports.py` 가 앱 전체에 `--all` 순환이 없음을 지킨다.
+파일:줄로 보인다. `--all` 은 함수 안 import 와 `"app.Model"` 문자열까지 넣는다. 공유층이 기능 앱을 부르던 자리는
+`core.agent_ports`·`core.ops_ports`·`accounts.ports`·`submissions.resolvers.TARGET_SHAPES` 자리로, 공모전 가족의
+아래가 위를 부르던 자리는 `contests.ports`·`awards.ports` 자리로 뒤집었다. 공모전 가족의 층은 아래부터
+contests → payments·scoring·appeals → awards → handovers → distributions → payouts 이다.
+`tests/test_shared_layer_ports.py` 가 자리가 올라 있음과 `--all` 순환이 없음을 지킨다.
 
-**`INSTALLED_APPS` 에 앱을 더하면 그 표에 분류를 적기 전까지 빨갛다.** 한 방향으로만
-그렇다 — 표는 아직 설치되지 않은 앱(`classroom`)을 미리 이름 지을 수 있다.
+**`INSTALLED_APPS` 에 앱을 더하면 표에 적기 전까지 빨갛다.**
 
 `scripts/` 의 스크립트가 아니라 테스트인 이유는 **로컬 게이트**다(아래 「티켓을 닫는
 기준」) — `scripts/` 검사는 그 셋 중 어디에도 안 걸려 push 해야만 결과를 안다. import
