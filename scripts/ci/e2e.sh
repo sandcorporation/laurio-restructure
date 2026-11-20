@@ -134,6 +134,8 @@ fi
 # 성공한 시험의 것은 `retain-on-failure` 가 남기지 않는다.
 # CODEMIT_E2E_PATHS — 이 실행기가 돌 시험 파일(공백으로 나눈 Playwright 걸러내기 인자, e2e_plan.py #1089). 없으면 프로젝트 전부.
 # 조각에는 `@exclusive` 시험이 없을 수 있어 빈 패스를 허용한다.
+# 시험 시간 리포트(#1112) — 패스마다 `test-results/timings/<대상>[-exclusive].json`. 매시 e2e.yml 이 모아 조각 시간 기록을 만든다.
+export E2E_TIMINGS_DIR="$PWD/test-results/timings"
 run_target() {
   if [ -n "${CODEMIT_E2E_PATHS:-}" ]; then export E2E_ALLOW_EMPTY=1; fi
   export PLAYWRIGHT_WORKERS=$WORKERS
