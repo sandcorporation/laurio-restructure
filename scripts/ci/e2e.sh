@@ -86,7 +86,8 @@ pw_image=""; pw_pull=""
 if [ "${CODEMIT_E2E_PLAYWRIGHT_IMAGE:-}" = 1 ]; then
   pw_image=$(python3 scripts/ci/playwright_image.py) || exit 1
   echo "Playwright 이미지 $pw_image"
-  docker pull -q "$pw_image" >test-results/playwright-pull.log 2>&1 &
+  pw_started=$SECONDS
+  { docker pull -q "$pw_image" && echo "받기 $((SECONDS - pw_started))초"; } >test-results/playwright-pull.log 2>&1 &
   pw_pull=$!
 fi
 
@@ -120,7 +121,9 @@ done
 corepack enable >/dev/null 2>&1 || true
 pnpm install --frozen-lockfile >/dev/null || { echo "pnpm install 실패"; exit 1; }
 if [ -n "$pw_image" ]; then
+  pw_waited=$SECONDS
   wait "$pw_pull" || { cat test-results/playwright-pull.log; echo "Playwright 이미지를 받지 못했다"; exit 1; }
+  echo "Playwright 이미지 $(tail -n 1 test-results/playwright-pull.log), 스택 뒤 기다림 $((SECONDS - pw_waited))초"
 else
   pnpm --dir frontend exec playwright install chromium >/dev/null || { echo "Playwright 브라우저를 받지 못했다"; exit 1; }
 fi
