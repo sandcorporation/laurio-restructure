@@ -10,7 +10,6 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
-from django.core.cache import caches
 
 from classroom.models import (
     ClassMember,
@@ -33,6 +32,8 @@ from tests.classroom_scenarios import (
 )
 from classroom.tests.test_classroom_connected_apps import _connect, _rpc, _set_clock
 
+pytestmark = pytest.mark.usefixtures("reset_rate_limits")
+
 DESTRUCTIVE_TOOLS = [
     "delete_problem",
     "delete_class",
@@ -40,13 +41,6 @@ DESTRUCTIVE_TOOLS = [
     "publish_problem_template",
     "publish_class_template",
 ]
-
-
-@pytest.fixture(autouse=True)
-def _reset_rate_limits():
-    caches["rate_limits"].clear()
-    yield
-    caches["rate_limits"].clear()
 
 
 def _call(client, token: str, name: str, arguments: dict) -> dict:

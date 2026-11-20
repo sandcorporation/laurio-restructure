@@ -16,7 +16,6 @@ from datetime import timedelta
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
-from django.core.cache import caches
 from django.test import override_settings
 from django.utils import timezone
 
@@ -32,6 +31,8 @@ from tests.classroom_scenarios import (
     login,
 )
 
+pytestmark = pytest.mark.usefixtures("reset_rate_limits")
+
 ORIGIN = "http://testserver"
 RESOURCE = f"{ORIGIN}/mcp"
 REDIRECT_URI = "https://claude.ai/api/mcp/auth_callback"
@@ -44,13 +45,6 @@ TOKEN_URL = "/api/classroom/oauth/token"
 REVOKE_URL = "/api/classroom/oauth/revoke"
 MCP_URL = "/api/classroom/mcp"
 APPS_URL = "/api/classroom/connected-apps"
-
-
-@pytest.fixture(autouse=True)
-def _reset_rate_limits():
-    caches["rate_limits"].clear()
-    yield
-    caches["rate_limits"].clear()
 
 
 def _set_clock(at):

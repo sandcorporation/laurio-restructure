@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import pytest
-from django.core.cache import caches
 
 from classroom.models import ConnectedAppWrite
 from tests.classroom_scenarios import (
@@ -27,6 +26,8 @@ from tests.classroom_scenarios import (
 from classroom.tests.test_classroom_connected_apps import _rpc
 from classroom.tests.test_classroom_mcp_problem_tools import _ok, _refused, _screen_detail, _setup
 
+pytestmark = pytest.mark.usefixtures("reset_rate_limits")
+
 CLASS_TOOLS = [
     "create_class",
     "copy_class",
@@ -37,13 +38,6 @@ CLASS_TOOLS = [
     "import_problem_template",
     "import_class_template",
 ]
-
-
-@pytest.fixture(autouse=True)
-def _reset_rate_limits():
-    caches["rate_limits"].clear()
-    yield
-    caches["rate_limits"].clear()
 
 
 def _tools(client, token: str) -> dict:

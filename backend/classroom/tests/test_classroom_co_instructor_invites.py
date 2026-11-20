@@ -21,7 +21,6 @@ from tests.classroom_scenarios import (
     archive_class,
     auth_header,
     create_class,
-    force_real_scoring_adapter,
     create_co_instructor_invite,
     create_open_problem,
     instructor_submissions,
@@ -36,13 +35,6 @@ from tests.classroom_scenarios import (
     run_scan,
     submit_repository,
 )
-
-
-@pytest.fixture
-def real_scoring():
-    # 통과를 만들려면 벤더 응답을 흉내 내야 한다 — 기본값(fake) 어댑터는 그 경로를 타지 않는다.
-    with force_real_scoring_adapter():
-        yield
 
 
 def _set_clock(at) -> None:

@@ -16,7 +16,6 @@
 from __future__ import annotations
 
 import pytest
-from django.core.cache import caches
 
 from classroom.instructor_scope import OWNER_ONLY_MESSAGE
 from classroom.models import ConnectedAppWrite
@@ -36,12 +35,7 @@ from tests.classroom_scenarios import (
 )
 from classroom.tests.test_classroom_connected_apps import _connect, _rpc
 
-
-@pytest.fixture(autouse=True)
-def _reset_rate_limits():
-    caches["rate_limits"].clear()
-    yield
-    caches["rate_limits"].clear()
+pytestmark = pytest.mark.usefixtures("reset_rate_limits")
 
 
 def _call(client, token: str, name: str, arguments: dict) -> dict:

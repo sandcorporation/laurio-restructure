@@ -22,7 +22,6 @@ from tests.classroom_scenarios import (
     create_class,
     create_co_instructor_invite,
     create_open_problem,
-    force_real_scoring_adapter,
     join_class,
     leave_class,
     list_instructors,
@@ -38,13 +37,6 @@ from tests.classroom_scenarios import (
 )
 
 WITHDRAWAL_URL = "/api/accounts/withdrawal"
-
-
-@pytest.fixture
-def real_scoring():
-    # 통과를 만들려면 벤더 응답을 흉내 내야 한다 — 기본값(fake) 어댑터는 그 경로를 타지 않는다.
-    with force_real_scoring_adapter():
-        yield
 
 
 def _co_instructor_id(client, access: str, class_id: int, display_name: str) -> int:

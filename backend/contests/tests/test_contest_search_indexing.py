@@ -24,7 +24,7 @@ from django.utils import timezone
 from accounts.models import SponsorProfile
 from contests import search as search_module
 from contests import tasks as contests_tasks
-from contests.models import Category, Contest, DeliverableType
+from contests.models import Contest, DeliverableType
 from contests.search import FakeContestSearchAdapter
 
 SCAN_URL = "/api/internal/scans/contest-search-reindex"
@@ -40,16 +40,6 @@ def sponsor(db):
         username="index-sponsor", email="index-sponsor@example.invalid"
     )
     return SponsorProfile.objects.create(user=user, display_name="색인 테스트 스폰서")
-
-
-@pytest.fixture
-def games(db):
-    return Category.objects.create(name="게임")
-
-
-@pytest.fixture
-def web(db):
-    return DeliverableType.objects.create(name="웹 서비스", minimum_prize=2_000_000)
 
 
 def _contest(sponsor, category, deliverable_types, *, status=Contest.Status.PUBLISHED, days=5, **fields):

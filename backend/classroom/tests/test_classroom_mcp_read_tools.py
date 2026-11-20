@@ -11,8 +11,6 @@ import json
 
 import pytest
 
-from django.core.cache import caches
-
 from classroom import scoring_cost
 
 from tests.classroom_scenarios import (
@@ -30,6 +28,8 @@ from tests.classroom_scenarios import (
     table_row_counts,
 )
 from classroom.tests.test_classroom_connected_apps import _connect, _rpc
+
+pytestmark = pytest.mark.usefixtures("reset_rate_limits")
 
 CLASSES_URL = "/api/classroom/classes"
 READ_TOOLS = ["get_class", "list_problems", "get_problem", "list_participants", "get_roster_grid"]
@@ -52,13 +52,6 @@ LIST_PROBLEM_KEYS = [
 def tools_by_name(client, token: str) -> dict:
     return {tool["name"]: tool for tool in _rpc(client, token, "tools/list").json()["result"]["tools"]}
 KEY = "sk-test-secret-key-9f3a"
-
-
-@pytest.fixture(autouse=True)
-def _reset_rate_limits():
-    caches["rate_limits"].clear()
-    yield
-    caches["rate_limits"].clear()
 
 
 def _call(client, token: str, name: str, **arguments):
