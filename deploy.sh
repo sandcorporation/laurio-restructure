@@ -25,6 +25,8 @@
 #   reindex             공모전 검색을 전체 재색인한다(검색·backend 를 바꾼 뒤)
 #   recreate-infra      db·redis 를 compose 의 이미지(digest)대로 다시 만든다 — 사람이 손으로만(#790)
 #   mark                배포 표식을 지금 커밋으로 옮긴다
+#   rollback-plan       교체 뒤 실패한 계획을 배포 표식 커밋으로 되돌리는 계획으로 다시 쓴다 — 자동 되돌리기(#1092,
+#                       scripts/ci/post-deploy-rollback.sh)만 부른다. 고친 계획의 커밋을 표준출력 끝줄에 낸다
 #   all (기본값)         위를 순서대로 전부 — 사람이 손으로 배포할 때
 #
 # **이미지는 CI 가 굽고, 여기서는 받는다**(2026-09-17). main 에 push 하면 Jenkins `codemit/deploy` 잡의
@@ -1291,6 +1293,46 @@ cmd_mark() {
   log "배포 표식: $(cat "$DEPLOYED")"
 }
 
+# 교체 뒤 실패한 배포를 직전 배포(배포 표식)로 되돌리는 계획(#1092). 지금 계획 파일은 실패한 커밋의 것이고,
+# 표식은 아직 옮겨지지 않아 직전 성공 배포를 가리킨다. 같은 서비스를 표식 커밋의 이미지로 다시 바꿔 끼우도록
+# `PLANNED_COMMIT` 만 표식 커밋으로 바꾸고 겹쳐 바꾸기로 둔다 — 그 커밋을 체크아웃한 뒤의 `image`·`up` 이 읽는다.
+#
+# 표식 커밋에서 `plan` 을 다시 돌리면 안 된다 — 표식과 같은 커밋이라 「바뀐 것 없음」이 나와 아무것도
+# 되돌리지 않는다(Jenkinsfile 의 `autoRollback: false` 가 꺼 둔 이유). 스키마는 그대로 두고 코드만 되돌린다 —
+# 직전 판 코드가 새 스키마에서 도는 것은 마이그레이션 호환 검사가 지킨다(docs/ops/migrations.md).
+# 계획 파일의 키는 `plan` 이 쓰는 것과 같다 — 옛 커밋의 deploy.sh 가 그대로 읽는다.
+cmd_rollback_plan() {
+  load_plan
+  if [ "$DEPLOY_ANY" != true ]; then
+    echo "실패한 계획에 바꿔 끼운 것이 없다 — 되돌릴 것이 없다."
+    exit 1
+  fi
+  target=$(cat "$DEPLOYED" 2>/dev/null || true)
+  if [ -z "$target" ] || ! $GIT cat-file -e "${target}^{commit}" 2>/dev/null; then
+    echo "배포 표식(${target:-없음})이 이 저장소의 커밋이 아니다 — 되돌릴 곳을 모른다."
+    exit 1
+  fi
+  if [ "$target" = "$PLANNED_COMMIT" ]; then
+    echo "배포 표식이 실패한 커밋과 같다 — 되돌릴 곳이 없다."
+    exit 1
+  fi
+  {
+    echo "DEPLOY_ANY=true"
+    echo "BUILD_BACKEND=$BUILD_BACKEND"
+    echo "BUILD_FRONTEND=$BUILD_FRONTEND"
+    echo "BUILD_OPERATOR=$BUILD_OPERATOR"
+    echo "BUILD_CLASSROOM=$BUILD_CLASSROOM"
+    echo "BUILD_SEARCH=$BUILD_SEARCH"
+    echo "BUILD_PGBOUNCER=$BUILD_PGBOUNCER"
+    echo "BUILD_AGENT_GRADER=$BUILD_AGENT_GRADER"
+    echo "AGENT_GRADER_RECREATE=$AGENT_GRADER_RECREATE"
+    echo "ROLLING_BACKEND=true"
+    echo "PLANNED_COMMIT=$target"
+  } > "$PLAN_FILE"
+  log "되돌리기 계획: $(echo "$PLANNED_COMMIT" | cut -c1-12) → $(echo "$target" | cut -c1-12)"
+  echo "$target"
+}
+
 # ------------------------------------------- 쓰이지 않는 이미지·캐시를 지운다
 
 # 배포가 끝나면 이 호스트의 도커 디스크를 비운다(2026-09-17). 커밋마다 ghcr 에서
@@ -1360,6 +1402,7 @@ case "$COMMAND" in
   predeploy-dump) dump_before_migrate ;;
   recreate-infra) cmd_recreate_infra ;;
   mark) cmd_mark ;;
+  rollback-plan) cmd_rollback_plan ;;
   prune) cmd_prune ;;
   all)
     cmd_preflight
@@ -1383,7 +1426,7 @@ case "$COMMAND" in
     cmd_prune
     ;;
   *)
-    echo "알 수 없는 명령: $COMMAND (preflight|plan|image|pull|build|up|verify|health|reindex|predeploy-dump|recreate-infra|mark|prune|all)"
+    echo "알 수 없는 명령: $COMMAND (preflight|plan|image|pull|build|up|verify|health|reindex|predeploy-dump|recreate-infra|mark|rollback-plan|prune|all)"
     exit 2
     ;;
 esac

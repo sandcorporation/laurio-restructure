@@ -169,8 +169,31 @@ codemit-prod-backend-1 …` 안에서 `127.0.0.1:8000` 으로 친다. 그때 Hos
    그 대조와 `images-e2e.sh` 를 지웠다. 「배포되는 것은 검사가 통과한 커밋」은 release 의 promote 가
    check·image 를 둘 다 기다리는 것이 지킨다(check·image 는 병렬) — production 은 그 커밋의 check 와 일곱 이미지가 모두 초록일 때만 움직인다.
 
-   **자동 롤백은 없다**(`autoRollback: false`) — `deploy.sh` 는 배포 표식 기준으로 바꿀 서비스를 정해서, 같은 스크립트를 옛
-   sha 로 다시 부르면 아무것도 되돌리지 않는다. 교체 뒤 실패(종료 2)는 운영을 사람이 봐야 한다는 뜻이다.
+   **배포 뒤 확인·자동 되돌리기(#1092)는 스위치 뒤에 있고, 기본은 꺼져 있다.** 라이브러리의 되돌리기(`autoRollback: false`)는
+   그대로 끈다 — `deploy.sh` 는 배포 표식 기준으로 바꿀 서비스를 정해서, 같은 스크립트를 옛 sha 로 다시 부르면 아무것도
+   되돌리지 않는다. 되돌리기는 `deploy-prod.sh` 안에서 한다. 스위치는 oracle 의 `docker/.env.prod` 의 `CODEMIT_POSTDEPLOY=` 한 줄
+   (환경변수가 먼저)이다:
+
+   | 값 | 하는 일 |
+   | --- | --- |
+   | `off`(없으면) | 지금 그대로 — 확인도 되돌리기도 없다. 교체 뒤 실패(종료 2)는 사람이 본다 |
+   | `check` | reindex 뒤 `scripts/ci/post-deploy-check.sh` — 실패면 표식을 옮기지 않고 2 로 끝난다 |
+   | `rollback` | 교체 뒤 실패(up·verify·health·reindex·확인 어디서든)면 직전 배포 표식의 이미지로 되돌리고 2 로 끝난다 |
+
+   확인은 한도 `CODEMIT_POSTDEPLOY_SECONDS`(기본 60초) 안에서 셋을 본다 — **준비**(backend 안 `/api/health?scope=ready`),
+   **작업자**(backend 안 `/api/health` 가 작업자 생존 신호까지 200 이고 celery-worker 안 `celery inspect ping` 에 답이 있다),
+   **핵심 경로**(`CODEMIT_POSTDEPLOY_URLS` 의 주소마다 2xx·3xx, 쉼표나 빈칸으로 가른다). 주소는 `.env.prod` 에만 둔다 —
+   켰는데 비어 있으면 확인이 실패한다. 되돌리기는 `deploy.sh prod rollback-plan` 이 실패한 계획을 표식 커밋으로 고치고
+   (같은 서비스, 겹쳐 바꾸기), `post-deploy-rollback.sh`(임시 사본으로 돈다)가 그 커밋을 체크아웃해 `image`·`up`·`verify`·
+   `health`·`reindex`·확인을 다시 돈다. 스키마는 되돌리지 않는다 — 직전 판 코드가 새 스키마에서 도는 것은
+   [마이그레이션 호환 검사](migrations.md)가 지킨다. 표식은 옮기지 않고, 잡은 빨갛게 끝난다(그것이 알림이다). 뒤로 가는 배포
+   (`ROLLBACK_SHA`)는 되돌리지 않는다. 직전 커밋의 이미지는 ghcr 에 최근 24개가 남아 있어 받을 수 있다(`ghcr_prune.py`).
+   **켜는 것은 2026-11-26 14:59Z 뒤**(spec #1079) — `check` 로 며칠 보고 `rollback` 으로 올린다.
+
+   시연: `bash scripts/ci/post-deploy-drill.sh` — 로컬 dev 스택(따로 띄우는 `codemit-drill-6`)에서 일부러 깨진 backend
+   이미지로 바꿔 끼우면 확인이 실패하고, 직전 이미지로 되돌리면 다시 통과한다. 되돌리기의 순서는
+   `backend/tests/test_deploy_postdeploy.py` 가 본다(꺼진 상태의 순서가 스위치를 넣기 전과 같다는 것도).
+
    **prod 를 멈추려면 Jenkins 에서 `codemit/deploy` 를 「Disable」한다.**
 
    **되돌리기는 둘이다.** ① **정석: `main` 에 revert PR** — 병합되면 release 가 그 커밋을 검사·굽고 production 을 앞으로
