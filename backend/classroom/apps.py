@@ -61,3 +61,10 @@ class ClassroomConfig(AppConfig):
         from .submission_target_state import resolve_classroom_submission
 
         TARGET_SHAPES.register("classroom-submission", resolve_classroom_submission)
+
+        # 탈퇴 판정 중 강의실 몫(#1086) — 공유층 `accounts.withdrawal` 이 강의실을 import 하지 않게.
+        from accounts.ports import INSTRUCTOR_CLASS_IN_PROGRESS
+
+        from .withdrawal import instructor_has_class_in_progress
+
+        INSTRUCTOR_CLASS_IN_PROGRESS.register(instructor_has_class_in_progress)

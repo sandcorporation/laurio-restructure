@@ -1209,7 +1209,7 @@ def _expire_identity_via_dormancy_scan(client) -> None:
 
     백데이트(`tests.test_withdrawal._backdate_activity`)로 `User.date_joined`
     ·`Verification.updated_at`만 과거로 되돌리는 방식은 이 파일과 맞지 않는다
-    — 최근 행위 판정(`accounts.dormancy._dormant_verifications`)이
+    — 최근 행위 판정(`verification.dormancy._dormant_verifications`)이
     `Submission.created_at`도 함께 보는데, 이 파일의 제출 픽스처들은 방금
     만든 Submission을 곧바로 쓴다. 그래서 여기서는 반대로 시계를 2년+1일
     앞으로 밀어 "방금"을 "2년 전"으로 만든다. 스캔이 끝나면 시계를 원래대로
@@ -1217,7 +1217,7 @@ def _expire_identity_via_dormancy_scan(client) -> None:
     보여 `_reject_if_past_deadline`이 엉뚱한 이유로 먼저 걸린다.
     """
 
-    from accounts.dormancy import DORMANCY_PERIOD
+    from verification.dormancy import DORMANCY_PERIOD
 
     _freeze(timezone.now() + DORMANCY_PERIOD + timedelta(days=1))
     try:

@@ -165,3 +165,11 @@ class ContestsConfig(AppConfig):
         from .submission_target_state import resolve_contest_submission
 
         TARGET_SHAPES.register("submission", resolve_contest_submission)
+
+        # 탈퇴 판정 중 공모전 몫(#1086) — 공유층 `accounts.withdrawal` 이 공모전을 import 하지 않게.
+        from accounts.ports import SPONSOR_CONTEST_IN_PROGRESS, SPONSOR_TRANSACTION_BASIS
+
+        from .withdrawal import sponsor_has_contest_in_progress, sponsor_transaction_basis
+
+        SPONSOR_CONTEST_IN_PROGRESS.register(sponsor_has_contest_in_progress)
+        SPONSOR_TRANSACTION_BASIS.register(sponsor_transaction_basis)
