@@ -1,7 +1,7 @@
 """e2e 를 무엇을, 몇 조각으로 돌지 — 바뀐 파일 → 앱 폴더 → 조각(#1089, spec #1079).
 
     python3 scripts/ci/e2e_plan.py --base <기준 커밋>   # PR: 바뀐 앱의 시험만
-    python3 scripts/ci/e2e_plan.py --all                # 병합 대기열: 전부
+    python3 scripts/ci/e2e_plan.py --all                # 매시 main(e2e.yml): 전부 — 병합 대기열은 e2e 를 돌지 않는다(#1111)
 
 시험 파일은 `frontend/e2e/<앱>/`(공개), `frontend/e2e/operator/<앱>/`(운영자), `frontend/e2e/classroom/`(강의실, 앱 `classroom`)에
 둔다. 폴더 이름이 앱 표시다 — `backend/app_deps.toml` 의 앱 이름이거나 `frontend`(백엔드 앱이 없는 화면·BFF 시험).
@@ -118,7 +118,7 @@ def plan(changed: list[str] | None) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--base", help="기준 커밋 — 이 뒤로 바뀐 파일만 본다")
-    parser.add_argument("--all", action="store_true", help="전부(병합 대기열)")
+    parser.add_argument("--all", action="store_true", help="전부(매시 main, e2e.yml)")
     args = parser.parse_args()
     if args.all or not args.base:
         matrix = plan(None)
