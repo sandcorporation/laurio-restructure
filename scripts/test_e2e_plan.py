@@ -44,6 +44,13 @@ class Selection(unittest.TestCase):
     def test_unattributed_backend_file_runs_everything(self) -> None:
         self.assertEqual(picked("backend/config/settings.py"), picked("scripts/ci/e2e.sh"))
 
+    def test_backend_test_files_alone_run_nothing(self) -> None:
+        self.assertEqual(picked("backend/tests/integration/test_classroom_hidden_items.py"), set())
+        self.assertEqual(picked("backend/classroom/tests/test_api.py", "backend/tests/conftest.py"), set())
+
+    def test_backend_test_files_do_not_widen_a_code_change(self) -> None:
+        self.assertEqual(picked("backend/payments/api.py", "backend/tests/integration/test_x.py"), picked("backend/payments/api.py"))
+
     def test_classroom_front_runs_only_classroom(self) -> None:
         got = picked("classroom/app/page.tsx")
         self.assertTrue(got and all(f.startswith("e2e/classroom/") for f in got))

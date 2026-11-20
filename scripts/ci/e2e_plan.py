@@ -5,7 +5,7 @@
 
 시험 파일은 `frontend/e2e/<앱>/`(공개), `frontend/e2e/operator/<앱>/`(운영자), `frontend/e2e/classroom/`(강의실, 앱 `classroom`)에
 둔다. 폴더 이름이 앱 표시다 — `backend/app_deps.toml` 의 앱 이름이거나 `frontend`(백엔드 앱이 없는 화면·BFF 시험).
-바뀐 백엔드 앱 → `scripts/app_deps.py` 의 `affected` 가 고른 앱들의 폴더. 앞단(frontend/·operator/·classroom/)이 바뀌면 그
+`backend/**/tests/**` 는 e2e 를 고르지 않는다(#1110). 바뀐 백엔드 앱 → `scripts/app_deps.py` 의 `affected` 가 고른 앱들의 폴더. 앞단(frontend/·operator/·classroom/)이 바뀌면 그
 앱의 시험 전부, 시험 폴더만 바뀌면 그 폴더만, 그 밖(공유 시험 도우미·설정·워크플로·packages·루트)은 전부.
 
 출력(줄마다 `KEY=값`): `E2E=0|1`, `MATRIX={"include":[{"name","project","paths"}…]}`. 폴더는 시험 수로 조각에 나눠 담는다
@@ -57,7 +57,8 @@ def select(changed: list[str], table: dict, present: dict[str, dict[str, dict[st
         if kind(f) == "docs":
             continue
         if kind(f) == "backend":
-            backend.append(f)
+            if "tests" not in f.split("/")[1:-1]:  # 백엔드 시험 파일은 화면 시험이 기대지 않는다 — 건너뛴다
+                backend.append(f)
         elif f.startswith("frontend/e2e/classroom/") and not f.startswith("frontend/e2e/classroom/lib/"):
             picked["classroom"].add("classroom")
         elif f.startswith("frontend/e2e/operator/"):
