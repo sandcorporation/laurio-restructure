@@ -103,7 +103,7 @@ class ReleaseFlowTest(unittest.TestCase):
             with self.subTest(cache=name):
                 self.assertIn(release_key(key_expr, name), {resolve(k, name) for k in restored})
         node = job_block(release, "cache-node")
-        for key in ("pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}", "playwright-${{ steps.pnpm-store.outputs.pw }}"):
+        for key in ("pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}",):
             with self.subTest(cache=key):
                 self.assertIn(f"key: {key}", pr)
                 self.assertIn(f"key: {key}", node)

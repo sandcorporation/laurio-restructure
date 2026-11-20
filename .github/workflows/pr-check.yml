@@ -122,6 +122,7 @@ jobs:
           python3 scripts/test_release_flow.py
           python3 scripts/test_changed_paths.py
           python3 scripts/test_e2e_plan.py
+          python3 scripts/test_playwright_image.py
           python3 scripts/test_pytest_plan.py
           bash scripts/ci/promote_test.sh
 
@@ -312,11 +313,10 @@ jobs:
         with:
           node-version: 22
       - id: pnpm-store
-        name: pnpm 저장소 경로·Playwright 버전
+        name: pnpm 저장소 경로
         run: |
           corepack enable
           echo "path=$(pnpm store path --silent)" >>"$GITHUB_OUTPUT"
-          echo "pw=$(grep -o '@playwright/test@[0-9.]*' pnpm-lock.yaml | head -1 | cut -d@ -f3)" >>"$GITHUB_OUTPUT"
       - id: bk-pnpm
         name: pnpm 저장소 복원
         uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
@@ -324,18 +324,13 @@ jobs:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: pnpm-store-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: pnpm-store-
-      - id: bk-pw
-        name: Playwright 브라우저 복원
-        uses: actions/cache/restore@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ steps.pnpm-store.outputs.pw }}
-      - name: pnpm 과 Playwright 의존 라이브러리
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm --dir frontend exec playwright install --with-deps chromium
+      # 브라우저·시스템 라이브러리는 설치하지 않는다(#1109) — Playwright 는 e2e.sh 가 공식 이미지에서 돌린다. 여기서는 node_modules 만.
+      - name: pnpm 의존
+        run: pnpm install --frozen-lockfile
       - name: e2e(e2e.sh)
         env:
+          # Playwright 를 scripts/ci/playwright-image(판·다이제스트 고정, 판 ≠ lockfile 이면 실패)에서 — apt·브라우저 CDN 없음(#1109)
+          CODEMIT_E2E_PLAYWRIGHT_IMAGE: 1
           # 호스팅 실행기는 코어가 적어(비공개 2·공개 4) 앱 셋·백엔드와 일꾼 둘이 다투면 3초 한도를 넘는다
           CODEMIT_E2E_WORKERS: 1
           CODEMIT_E2E_TARGETS: ${{ matrix.project }}

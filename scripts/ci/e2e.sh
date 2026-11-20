@@ -18,6 +18,13 @@
 # 찬다(2026-10-14, 이미지 1,283개·51GB). 빌드 캐시는 남으니 다음 실행의 굽기는 캐시 히트다.
 # 공용 base 이미지(postgres·redis·minio)는 compose 가 구운 것이 아니라 남는다.
 # 프로젝트 하나가 실패해도 나머지는 끝까지 돈다.
+#
+# **Playwright 를 어디서 돌리나(#1109).** CODEMIT_E2E_PLAYWRIGHT_IMAGE=1(GitHub Actions 의 e2e 잡)이면 Playwright 만 공식
+# 이미지(`scripts/ci/playwright-image`, 판·다이제스트 고정)에서 `--network host` 로 돈다 — 스택은 그대로 호스트의 docker
+# compose 이고, 시험은 127.0.0.1 의 공개 포트로만 닿는다. 브라우저와 그 시스템 라이브러리·글꼴이 이미지에 있어 잡이 apt 도
+# 브라우저 CDN 도 부르지 않는다(실행기 미러가 느린 날 조각 하나가 대기열을 붙잡았다). 이미지 판이 lockfile 의
+# `@playwright/test` 와 다르면 시험 전에 실패한다(`playwright_image.py`). node_modules 는 호스트에서 깔고 저장소를 같은
+# 경로로 마운트해 그대로 쓴다. 이미지 받기는 스택 굽기와 겹쳐 돈다. 없으면 예전처럼 호스트의 Playwright 다(로컬).
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 # playwright.config 의 입구 검사 — 이 노드는 Jenkins 가 통째로 쓰므로 test.sh 의 칸을 거치지 않는다.
@@ -75,6 +82,15 @@ fi
 
 read_port() { "${C[@]}" port "$1" "$2" | head -n 1 | sed 's/.*://'; }
 
+pw_image=""; pw_pull=""
+if [ "${CODEMIT_E2E_PLAYWRIGHT_IMAGE:-}" = 1 ]; then
+  pw_image=$(python3 scripts/ci/playwright_image.py) || exit 1
+  echo "Playwright 이미지 $pw_image"
+  pw_started=$SECONDS
+  { docker pull -q "$pw_image" && echo "받기 $((SECONDS - pw_started))초"; } >test-results/playwright-pull.log 2>&1 &
+  pw_pull=$!
+fi
+
 "${C[@]}" up -d minio >/dev/null
 CODEMIT_MINIO_PORT=$(read_port minio 9000)
 export CODEMIT_MINIO_PORT
@@ -104,7 +120,13 @@ done
 
 corepack enable >/dev/null 2>&1 || true
 pnpm install --frozen-lockfile >/dev/null || { echo "pnpm install 실패"; exit 1; }
-pnpm --dir frontend exec playwright install chromium >/dev/null || { echo "Playwright 브라우저를 받지 못했다"; exit 1; }
+if [ -n "$pw_image" ]; then
+  pw_waited=$SECONDS
+  wait "$pw_pull" || { cat test-results/playwright-pull.log; echo "Playwright 이미지를 받지 못했다"; exit 1; }
+  echo "Playwright 이미지 $(tail -n 1 test-results/playwright-pull.log), 스택 뒤 기다림 $((SECONDS - pw_waited))초"
+else
+  pnpm --dir frontend exec playwright install chromium >/dev/null || { echo "Playwright 브라우저를 받지 못했다"; exit 1; }
+fi
 
 # 두 패스(`@exclusive` 는 일꾼 하나로 따로)는 package.json 의 `test:*`·scripts/test.sh 와 같은
 # frontend/scripts/e2e-two-pass.sh 다(#702). Playwright 는 실행마다 출력 폴더를 비우므로 패스마다
@@ -114,11 +136,26 @@ pnpm --dir frontend exec playwright install chromium >/dev/null || { echo "Playw
 # 조각에는 `@exclusive` 시험이 없을 수 있어 빈 패스를 허용한다.
 run_target() {
   if [ -n "${CODEMIT_E2E_PATHS:-}" ]; then export E2E_ALLOW_EMPTY=1; fi
-  # shellcheck disable=SC2086 — 공백으로 나눈 경로 목록이다
-  PLAYWRIGHT_WORKERS=$WORKERS \
-    E2E_OUTPUT_DIR="../test-results/playwright/$1" \
-    E2E_EXCLUSIVE_OUTPUT_DIR="../test-results/playwright/$1-exclusive" \
+  export PLAYWRIGHT_WORKERS=$WORKERS
+  export E2E_OUTPUT_DIR="../test-results/playwright/$1"
+  export E2E_EXCLUSIVE_OUTPUT_DIR="../test-results/playwright/$1-exclusive"
+  if [ -z "$pw_image" ]; then
+    # CODEMIT_E2E_PATHS 는 공백으로 나눈 경로 목록이다
+    # shellcheck disable=SC2086
     frontend/scripts/e2e-two-pass.sh "$1" ${CODEMIT_E2E_PATHS:-}
+    return
+  fi
+  # 이미지 안: 호스트 사용자로(남는 파일이 root 것이 되지 않게), 시험이 읽는 환경만 넘긴다 — PLAYWRIGHT_BROWSERS_PATH 는
+  # 이미지의 것(/ms-playwright)을 쓴다. pnpm 은 corepack 이 packageManager 판을 /tmp 에 깐다(apt 아님).
+  local envs=() name
+  while IFS= read -r name; do envs+=(-e "$name"); done < <(compgen -e | grep -E '^(CODEMIT_|E2E_|INTERNAL_API_TOKEN$|PLAYWRIGHT_WORKERS$|CI$|GITHUB_ACTIONS$)')
+  # 작은따옴표 안은 안쪽 셸이 펼친다, CODEMIT_E2E_PATHS 는 공백으로 나눈 경로 목록이다
+  # shellcheck disable=SC2016,SC2086
+  docker run --rm --init --network host --ipc host --user "$(id -u):$(id -g)" \
+    -v "$PWD:$PWD" -w "$PWD" -e HOME=/tmp -e COREPACK_HOME=/tmp/corepack -e COREPACK_ENABLE_DOWNLOAD_PROMPT=0 \
+    "${envs[@]}" "$pw_image" \
+    bash -c 'mkdir -p /tmp/bin && corepack enable --install-directory /tmp/bin && PATH=/tmp/bin:$PATH exec frontend/scripts/e2e-two-pass.sh "$@"' \
+    _ "$1" ${CODEMIT_E2E_PATHS:-}
 }
 
 failed=0

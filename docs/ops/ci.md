@@ -82,7 +82,7 @@ PR → pr-check.yml(바뀐 앱만, 「결과」 초록) → 병합 대기열 →
   (`scripts/test_ci_images.py` 가 어긋나면 막는다). 이미지를 한 번 굽어 잡들이 나눠 받는 길은 재 보니 걸림 경로가 늘어 접었다(#1081 댓글).
 - **저장은 main 에서만, release.yml 의 `cache`·`cache-node` 잡이 한다**(#1090) — PR·대기열(`gh-readonly-queue/…` ref)에서 만든 캐시는 그 ref
   안에서만 쓰여 다른 PR 에 소용이 없고 10GB 만 먹는다. 잡은 이름마다(ci·backend·frontend·operator·classroom) 정확한 키를 `lookup-only` 로 보고
-  **이미 있으면 받지도 굽지도 않는다** — 키 파일(`docker/*.Dockerfile`·`backend/uv.lock`·`pnpm-lock.yaml`·Playwright 버전)이 바뀐 병합에서만 굽는다.
+  **이미 있으면 받지도 굽지도 않는다** — 키 파일(`docker/*.Dockerfile`·`backend/uv.lock`·`pnpm-lock.yaml`)이 바뀐 병합에서만 굽는다.
   없으면 앞 세대(`bk-<이름>-` 접두사)를 복원해 `--output type=cacheonly` 로 층만 굽고 `/tmp/bk-new` 에 내보낸 뒤 복원 폴더 자리에 바꿔 끼워
   저장한다(actions/cache 의 버전은 경로로 갈려 같은 경로여야 PR 이 받는다, 한 세대만 남는다). 저장소 쓰기 권한이 필요 없다 — GHA 캐시 백엔드
   `type=gha` 는 쓰지 않는 까닭. 승격은 이 잡을 기다리지 않는다. 키는 `pr-check.yml` 의 복원 키와 같아야 한다(`test_release_flow.py`).
@@ -91,7 +91,15 @@ PR → pr-check.yml(바뀐 앱만, 「결과」 초록) → 병합 대기열 →
   `public operator`·`classroom` 두 실행기(일꾼 1개 그대로). Playwright `--shard` 대신 프로젝트 단위로 나눈 까닭은 `e2e-two-pass.sh` 의
   `@exclusive` 패스가 시험 순번 shard 와 섞이면 일꾼 하나 보장이 깨지기 때문이다. 실패 결과물은 `checks-test-results-<묶음>`·`e2e-test-results-<이름>`, pytest 조각의 junit 은 전부를 돈 실행이면 초록이어도 `pytest-junit-<조각>`(14일).
   동시 잡은 plan 1 + checks 최대 8(static·pytest 6·web) + guard 3 + e2e 조각 + celery 1 + agent-grader 1 + 결과 1 — 공개 저장소 한도 20 을 넘는 만큼은 줄을 선다. 잡 분 합계는 늘 수 있다 — 실행기마다 이미지를 따로 굽기 때문이다.
-- **pnpm 저장소**·**Playwright 브라우저**(`e2e` 잡 호스트 설치, 키는 lockfile 해시·Playwright 버전)도 같은 규칙이다.
+- **pnpm 저장소**(`e2e` 잡 호스트 설치, 키는 lockfile 해시)도 같은 규칙이다.
+- **e2e 의 Playwright 는 공식 이미지에서 돈다 — 잡이 apt 도 브라우저 CDN 도 부르지 않는다(#1109).** 예전에는 조각마다
+  `playwright install --with-deps chromium` 이 실행기 미러에서 글꼴·라이브러리를 apt 로 받았고(브라우저 캐시는 포크에서 한 번도 저장되지
+  않아 브라우저도 매번 받았다), 미러가 느린 날 그 조각 하나가 5분을 넘겨 대기열 전체를 붙잡았다. 지금은 `e2e.sh` 가
+  `CODEMIT_E2E_PLAYWRIGHT_IMAGE=1` 일 때 `scripts/ci/playwright-image`(MCR `playwright:v<판>-noble`, 다이제스트 고정)를 스택 굽기와 겹쳐
+  받고, Playwright 만 그 안에서 `--network host`·호스트 사용자로 돌린다 — 스택은 호스트 compose 그대로, node_modules 는 호스트에서 깔아
+  같은 경로로 마운트한다. **이미지 판 ≠ lockfile 의 `@playwright/test` 면 시험 전에 실패한다**(`scripts/ci/playwright_image.py`, 시험
+  `scripts/test_playwright_image.py` 가 plan 잡에서 돈다). `@playwright/test` 를 올리는 PR 은 이 파일의 태그·다이제스트도 같이 고친다
+  (다이제스트 얻는 법은 스크립트 머리말). 로컬 `scripts/test.sh e2e` 는 그대로 호스트 Playwright 다.
 - **10GB**: 키가 lockfile·Dockerfile 해시라 바뀔 때만 새 항목이 생기고, 안 쓰인 것은 GitHub 가 7일 뒤·한도 초과 때 오래된 것부터 지운다.
   `gh cache list` 합계를 가끔 본다.
 - 보안 규칙(`scripts/test_public_repo.py`)은 그대로다 — 액션 SHA 고정, `permissions: contents: read`, secrets 없음.
