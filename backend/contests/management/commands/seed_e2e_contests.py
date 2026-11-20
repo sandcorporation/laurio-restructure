@@ -36,7 +36,7 @@ from django.utils import timezone
 
 from accounts.models import DeveloperProfile, SocialAccount, SponsorProfile
 from awards.models import Award
-from contests.models import Category, Contest, ContestSubmission, DeliverableType, Requirement
+from contests.models import Category, Contest, ContestSubmission, DeliverableType, Evidence, Requirement, RequirementResponse
 from core.management.stdout_utf8 import write_stdout_utf8
 from ledger.models import hard_delete_e2e_fixture_rows
 from core.quality_review import (
@@ -49,8 +49,6 @@ from core.quality_review import (
 from scoring.models import Score, SubmissionQualityReview
 from scoring.quality import requirement_inputs
 from submissions.models import (
-    Evidence,
-    RequirementResponse,
     Submission,
     SubmissionAsset,
 )
