@@ -94,7 +94,8 @@ PR → pr-check.yml(바뀐 앱만, 「결과」 초록) → 병합 대기열 →
   **이미 있으면 받지도 굽지도 않는다** — 키 파일(`docker/*.Dockerfile`·`backend/uv.lock`·`pnpm-lock.yaml`)이 바뀐 병합에서만 굽는다.
   없으면 앞 세대(`bk-<이름>-` 접두사)를 복원해 `--output type=cacheonly` 로 층만 굽고 `/tmp/bk-new` 에 내보낸 뒤 복원 폴더 자리에 바꿔 끼워
   저장한다(actions/cache 의 버전은 경로로 갈려 같은 경로여야 PR 이 받는다, 한 세대만 남는다). 저장소 쓰기 권한이 필요 없다 — GHA 캐시 백엔드
-  `type=gha` 는 쓰지 않는 까닭. 승격은 이 잡을 기다리지 않는다. 키는 `pr-check.yml` 의 복원 키와 같아야 한다(`test_release_flow.py`).
+  `type=gha` 는 쓰지 않는 까닭. 승격은 이 잡을 기다리지 않는다. **포크(#1116)에서도 main push 면 이 두 잡만 돈다**(`main_only` 가 건너뛰어진
+  자리를 `github.repository`·`github.ref` 로 대신 본다) — 전에는 포크 release 가 통째로 건너뛰어 캐시가 한 번도 저장되지 않았고, 포크 PR 의 e2e 조각은 층 없이 ~200초씩 구웠다. 키는 `pr-check.yml` 의 복원 키와 같아야 한다(`test_release_flow.py`).
 - **병렬화(#932)**: `checks` 는 `sub-checks.sh <묶음>` 으로 여섯 실행기 — `static`(Django·마이그레이션 호환·생성물·문서·언어 검사)·`pytest I/N`(전부면 6조각, PR 은 고른 시험의 시간만큼,
   파일별 시간 기록으로 고르게 — `pytest_shards.py`, 기록 갱신은 `pytest-durations-update.sh`, #1083)·`web`(단위 시험·typecheck). 인자 없이는 전부 돈다(로컬 길). `e2e` 는 `CODEMIT_E2E_TARGETS` 로
   `public operator`·`classroom` 두 실행기(일꾼 1개 그대로). Playwright `--shard` 대신 프로젝트 단위로 나눈 까닭은 `e2e-two-pass.sh` 의

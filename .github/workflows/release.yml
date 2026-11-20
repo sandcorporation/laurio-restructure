@@ -60,6 +60,9 @@ jobs:
   # 키가 이미 있으면 받지도 굽지도 않는다(lookup-only). 없으면 앞 세대를 복원해 굽고 새 키로 저장한다.
   cache:
     needs: main_only
+    # 포크(#1084·#1116)에는 main_only 가 건너뛰어져도 main push 면 돈다 — 저장하는 것은 이 저장소의 Actions 캐시뿐이라(쓰기 권한·이미지·승격 없음)
+    # 포크 PR 검사가 받을 층이 생긴다. 없으면 포크 e2e 조각마다 처음부터 굽는다. 본 저장소에서는 main_only success 그대로.
+    if: ${{ !cancelled() && (needs.main_only.result == 'success' || needs.main_only.result == 'skipped' && github.repository != 'sandcorporation/laurio' && github.ref == 'refs/heads/main') }}
     name: cache ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -122,6 +125,9 @@ jobs:
   # Playwright 브라우저는 캐시하지 않는다 — e2e 는 브라우저가 든 공식 이미지에서 돈다(#1109).
   cache-node:
     needs: main_only
+    # 포크(#1084·#1116)에는 main_only 가 건너뛰어져도 main push 면 돈다 — 저장하는 것은 이 저장소의 Actions 캐시뿐이라(쓰기 권한·이미지·승격 없음)
+    # 포크 PR 검사가 받을 층이 생긴다. 없으면 포크 e2e 조각마다 처음부터 굽는다. 본 저장소에서는 main_only success 그대로.
+    if: ${{ !cancelled() && (needs.main_only.result == 'success' || needs.main_only.result == 'skipped' && github.repository != 'sandcorporation/laurio' && github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
