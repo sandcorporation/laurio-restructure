@@ -118,6 +118,17 @@ class ReleaseFlowTest(unittest.TestCase):
         for job in ("image", "cache", "cache-node", "notify", "promote"):
             self.assertRegex(job_block(release, job), r"needs:\s*(main_only|\[main_only)")
         self.assertIn(f"if: {only_upstream}", job_block(read(WORKFLOWS / "image.yml"), "build"))
+        # 캐시 잡만은 포크 main 에서도 돈다(#1116) — 포크 PR 검사의 층 캐시가 비어 e2e 조각마다 처음부터 굽던 것.
+        # 저장하는 것은 Actions 캐시뿐이고, 본 저장소에서는 main_only success 를, 포크에서는 main ref 를 요구한다.
+        fork_cache = "needs.main_only.result == 'skipped' && github.repository != 'sandcorporation/laurio' && github.ref == 'refs/heads/main'"
+        for job in ("cache", "cache-node"):
+            with self.subTest(fork_cache=job):
+                block = job_block(release, job)
+                self.assertIn(fork_cache, block)
+                self.assertNotRegex(block, r"(?m)^\s+permissions:")
+        for job in ("image", "notify", "promote"):
+            with self.subTest(upstream_only=job):
+                self.assertNotIn("result == 'skipped'", job_block(release, job))
         # 매시 e2e(#1111): 실제 실패 이슈는 본 저장소에서만 — 포크는 알림 시험만
         self.assertIn("github.repository == 'sandcorporation/laurio'", job_block(read(WORKFLOWS / "e2e.yml"), "notify"))
 
