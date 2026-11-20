@@ -654,7 +654,7 @@ SEARCH_ADAPTER_MODE=contests.search_opensearch.OpenSearchContestSearch \
 단일 노드·JVM 힙 1GB·컨테이너 메모리 한도 2GB(`mem_limit`)이고 보안 플러그인은
 끈다. **호스트의 `vm.max_map_count`가 262144 이상이어야 뜬다**(OpenSearch
 공식 권장값, 커널 전역이라 컨테이너 안에서 올릴 수 없다) — `sysctl
-vm.max_map_count`로 먼저 확인한다. `tests/test_contest_search_opensearch_live.py`
+vm.max_map_count`로 먼저 확인한다. `contests/tests/test_contest_search_opensearch_live.py`
 (`@live_infra`, `OPENSEARCH_URL`이 있을 때만 돈다, CI는 건너뛴다)가 이 실물
 어댑터를 실제로 친다 — 한국어 조사가 달라도 찾아지는지, 제목 가중이 설명보다
 높은지, 재색인(`rebuild`) 중에도 검색이 끊기지 않는지(별칭 원자적 교체) 확인한다.

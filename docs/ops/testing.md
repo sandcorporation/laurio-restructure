@@ -12,6 +12,24 @@
 
 시간은 시임이 아니라 주입 가능한 의존성이다(티켓 02, ADR-0003).
 
+**시험은 앱 폴더에 산다**(#1087). 세 자리다:
+
+| 자리 | 무엇 | 주소(`ROOT_URLCONF`) |
+| --- | --- | --- |
+| `backend/<앱>/tests/` | 닿는 앱이 그 앱과 그 앱이 쓰는 아래 앱(`app_deps.toml` 의 `uses` 닫힘)뿐인 시험 | `<앱>.tests.urls` — 그 앱과 아래 앱의 라우터만 |
+| `backend/tests/integration/` | 옆 앱·위 앱에 닿는 앱 사이 흐름 | 전체(`config.urls`) |
+| `backend/tests/` | 저장소 구조 시험(경계·배포 구성 등)과 전체 주소에 기대는 시험, 그리고 헬퍼 | 전체 |
+
+- 앱 시험의 주소는 `backend/conftest.py` 의 모듈 픽스처가 바꾼다 — 강의실 시험이 로그인(accounts)을 부르는 것은
+  되고, 위 앱·옆 앱의 주소는 404 다. 404 가 나면 그 시험은 통합이다.
+- 라우터·뷰가 어느 주소에 붙는지는 `backend/config/routes.py` 표 하나다. `config/api.py`·`config/urls.py` 와
+  `tests/app_urls.py`(앱 시험 주소)가 같은 표를 읽는다. 라우터를 더하면 이 표에 더한다.
+- 픽스처·훅은 `backend/conftest.py`(루트)에 있다. 헬퍼(`tests/classroom_scenarios.py` 등)는 `from tests.… import`
+  로 그대로 쓴다.
+- 자리는 `python3 scripts/tests_layout.py plan` 이 정하고 `apply` 가 옮긴다 — 본 저장소를 당겨 `backend/tests/` 에
+  새 시험이 생기면 다시 돌린다. 닿는 앱은 import(헬퍼·다른 시험 파일을 거친 것 포함)와 부르는 주소로 센다. 손으로
+  정할 파일은 스크립트의 `OVERRIDES` 에 적는다.
+
 **`backend` pytest를 dev 컨테이너 안에서 돌리지 마라.** `docker compose -f
 docker/compose.dev.yaml exec backend uv run pytest`(또는 컨테이너 안 셸에서 직접)로
 돌리면 12건 안팎이 실패한다 — 회귀가 아니라 어댑터 불일치다. 테스트는
@@ -165,7 +183,7 @@ Contest 전이 그래프를 한 곳에 선언하고 선언 밖을 정적으로 �
 이고, CI 는 둘 다 건너뛴다. 돌릴 때는 `scripts/test.sh backend tests/test_pgbouncer_live.py -m live_infra`
 처럼 표식을 직접 준다.
 
-**시험 하나는 CPU 1초를 넘지 못한다**(2026-10-02). `tests/conftest.py` 가 시험 본문(call
+**시험 하나는 CPU 1초를 넘지 못한다**(2026-10-02). `backend/conftest.py` 가 시험 본문(call
 단계)의 CPU 시간 — 자식 프로세스 몫 포함 — 을 재서 넘으면 실패로 바꾼다. 한도는
 `CODEMIT_TEST_CPU_LIMIT`(로컬 기본 1.0, CI 의 `test` 잡은 1.5, 0 이면 끈다). 벽시계가
 아니라 CPU 로 재는 이유는 붐비는 러너에서 한도 근처의 시험이 빌드마다 번갈아 떨어지지
@@ -315,4 +333,4 @@ checks_profanity=False, exempt_reason="...")` 로 적는다 — 둘 다 거짓�
 없던 자리였다: 클래스 템플릿을 가져올 때 새로 붙이는 이름, 채점 지침 `"custom"` 문장
 (만들 때·고칠 때), 공모전 요구사항 문구(만들 때 인라인·따로 추가·수정), 개최자·개발자
 공개 소개글(`bio`). 면제 대신 실제 검사를 걸었다 — `core.banned_word_rules` 모듈
-docstring 과 `tests/test_banned_word_gap_fields.py` 가 경위와 HTTP 검증을 남긴다.
+docstring 과 `tests/integration/test_banned_word_gap_fields.py` 가 경위와 HTTP 검증을 남긴다.

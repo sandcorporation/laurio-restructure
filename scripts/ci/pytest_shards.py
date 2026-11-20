@@ -24,8 +24,9 @@ RECORD = Path(__file__).resolve().parent / "pytest-durations.json"
 
 
 def test_files(backend: Path = BACKEND) -> list[str]:
-    """backend/ 기준 시험 파일 — pytest 설정(testpaths=tests, python_files=test_*.py)과 같은 범위."""
-    return sorted(p.relative_to(backend).as_posix() for p in (backend / "tests").rglob("test_*.py"))
+    """backend/ 기준 시험 파일 — `tests/`(통합·구조)와 앱마다 `<앱>/tests/`(#1087). python_files=test_*.py."""
+    found = [*(backend / "tests").rglob("test_*.py"), *backend.glob("*/tests/**/test_*.py")]
+    return sorted({p.relative_to(backend).as_posix() for p in found})
 
 
 def shards(files: Iterable[str], durations: Mapping[str, float], total: int) -> list[list[str]]:
