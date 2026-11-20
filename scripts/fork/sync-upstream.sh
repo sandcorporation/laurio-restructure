@@ -55,7 +55,7 @@ body=$(printf '본 저장소 main %s..%s 를 당긴다(`scripts/fork/sync-upstre
 url=$(gh pr create --repo "$FORK" --base main --head "$branch" \
   --title "본 저장소 main 당겨 맞추기 ${new:0:12}" --body "$body")
 echo "$url"
-gh pr merge --repo "$FORK" --squash "$url"
+bash "$root/scripts/fork/enqueue.sh" "${url##*/}"
 cd "$root"
 git worktree remove --force "$wt"
 echo "대기열에 넣었다: $url"
