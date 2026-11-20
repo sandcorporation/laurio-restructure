@@ -112,11 +112,15 @@ pnpm --dir frontend exec playwright install chromium >/dev/null || { echo "Playw
 # frontend/scripts/e2e-two-pass.sh 다(#702). Playwright 는 실행마다 출력 폴더를 비우므로 패스마다
 # `test-results/playwright/<프로젝트>[-exclusive]/` 에 따로 둔다(#699, 경로는 frontend 기준이라 `../`).
 # 성공한 시험의 것은 `retain-on-failure` 가 남기지 않는다.
+# CODEMIT_E2E_PATHS — 이 실행기가 돌 시험 파일(공백으로 나눈 Playwright 걸러내기 인자, e2e_plan.py #1089). 없으면 프로젝트 전부.
+# 조각에는 `@exclusive` 시험이 없을 수 있어 빈 패스를 허용한다.
 run_target() {
+  if [ -n "${CODEMIT_E2E_PATHS:-}" ]; then export E2E_ALLOW_EMPTY=1; fi
+  # shellcheck disable=SC2086 — 공백으로 나눈 경로 목록이다
   PLAYWRIGHT_WORKERS=$WORKERS \
     E2E_OUTPUT_DIR="../test-results/playwright/$1" \
     E2E_EXCLUSIVE_OUTPUT_DIR="../test-results/playwright/$1-exclusive" \
-    frontend/scripts/e2e-two-pass.sh "$1"
+    frontend/scripts/e2e-two-pass.sh "$1" ${CODEMIT_E2E_PATHS:-}
 }
 
 failed=0

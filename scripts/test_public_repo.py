@@ -40,10 +40,9 @@ ALLOWED_WRITES = {
     ("release.yml", "image"): {"packages"},
     ("release.yml", "promote"): {"contents"},
     ("release.yml", "notify"): {"issues"},
-    ("e2e.yml", "notify"): {"issues"},  # check 실패 알림(#1015)
 }
 # 잡마다 권한을 따로 적어도 되는 워크플로 — 승격 흐름은 잡마다 권한이 달라야 한다.
-JOB_PERMISSIONS_ALLOWED = {"release.yml", "e2e.yml"}
+JOB_PERMISSIONS_ALLOWED = {"release.yml"}
 
 
 def permission_blocks(code: str) -> list[tuple[str, dict[str, str]]]:

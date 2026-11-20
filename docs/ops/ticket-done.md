@@ -79,7 +79,7 @@ e2e` 로 파일·프로젝트를 좁혀 돌린다. 그 스크립트들은 CI 가
 
 ```bash
 scripts/test.sh backend payouts/tests/test_payouts.py -q
-scripts/test.sh e2e --project=public e2e/payout.spec.ts -g "상금 그대로가"
+scripts/test.sh e2e --project=public e2e/payouts/payout.spec.ts -g "상금 그대로가"
 ```
 
 안쪽 고리에서 전체를 돌리면 **한 번의 red→green 이 4초가 아니라 7분**이 된다. 슬라이스

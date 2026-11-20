@@ -86,9 +86,7 @@ class ReleaseFlowTest(unittest.TestCase):
         for job in ("verify", "image", "notify", "promote"):
             self.assertRegex(job_block(release, job), r"needs:\s*(main_only|\[main_only)")
         self.assertIn(f"if: {only_upstream}", job_block(read(WORKFLOWS / "image.yml"), "build"))
-        e2e = read(WORKFLOWS / "e2e.yml")
-        self.assertIn(f"if: {only_upstream} || github.event_name == 'workflow_dispatch'", job_block(e2e, "gate"))
-        self.assertIn(only_upstream, job_block(e2e, "notify"))
+        self.assertFalse((WORKFLOWS / "e2e.yml").exists(), "e2e 는 PR 검사의 e2e 잡이 돈다(#1089) — 매시 cron 은 없다")
 
     def test_pr_check_also_judges_the_merge_queue(self) -> None:
         on = re.search(r"(?ms)^on:\n(.*?)(?=^\S)", read(WORKFLOWS / "pr-check.yml"))

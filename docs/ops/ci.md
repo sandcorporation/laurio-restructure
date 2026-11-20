@@ -17,7 +17,7 @@ PR → pr-check.yml(「결과」 초록) → 작업자 squash 병합 → main
   amd64 로 굽고 `deploy-guard.sh`, `CODEMIT_GUARD_IMAGE`)·`celery`(`celery-broker.sh`)·`agent-grader`(`agent-grader-check.sh` — `ubuntu-24.04-arm`
   에서 에이전트 채점 실행기 이미지를 굽고 운영과 같은 격리 설정(seccomp 프로필 포함)으로 Codex 샌드박스 한 줄과 가짜 벤더에 두 CLI 를 돌린다. 실행기의 AppArmor 사용자 네임스페이스 제한은 끄고 돈다 — 운영 호스트에는 AppArmor 가 없다, #999) →
   `결과`(모두 초록이면 초록 — 필수 검사로 걸 이름). **병합 기준은 「결과」 잡이다** — `gh pr checks <PR>`·`gh run watch` 로 본다.
-  **PR 에서는 `guard` 를 건너뛰고 `e2e` 는 PR·release 어디서도 돌지 않는다**(#1015, 줄 서기 단축 — e2e 둘이 PR 시간의 37%였다).
+  **PR 에서는 `guard` 를 건너뛴다**(#1015, 줄 서기 단축). **`e2e` 는 PR 에서는 바뀐 앱의 시험만, 병합 대기열(`merge_group`)에서는 전부를 조각 나란히로 돌고 release(main push)에서는 건너뛴다**(#1089).
   `guard` 는 `plan` 잡 출력 `guard`(PR 이벤트면 빔)를 `if` 가 본다. 잡 이름·`결과` 는 그대로다.
   - **`결과` 는 skipped 를 통과로 세지 않는다**: plan 이 시험 없음(문서만)이면 나머지가 skipped, 아니면 checks·celery 는 success, guard 는 PR 이 아닐 때 success(PR 에서만 skipped)여야 통과다. 조건을 잘못 걸어 필수 잡이 통째로 건너뛰어도 초록이던 구멍을 막는다.
   - **PR 검사 잡**: plan · checks(static·pytest 4·web) · celery · agent-grader · 결과(guard 는 skipped). 어느 잡이 도는지는 `changed.sh` 가 바뀐 경로로 고른다(#1082):
@@ -33,11 +33,10 @@ PR → pr-check.yml(「결과」 초록) → 작업자 squash 병합 → main
     경로 표는 `scripts/test_changed_paths.py` 가 고정한다. 일부만 돈 PR 실행도 release verify 가 증명으로 받는다(#1097, 아래).
   - **release 검사 잡**(main push, `workflow_call` 이라 `github.event_name` 은 부른 쪽 push): 위에 **guard(frontend·operator·classroom)** 가 더해진다.
   - 건너뛴 잡이 있는 PR 실행은 `verified_tree.py` 가 「계획과 같은 건너뜀」일 때만 초록으로 친다(#1097, 아래).
-  - **e2e 는 `e2e.yml` 이 main 을 매시(07분) 돈다**(`schedule`) — 직전 성공 실행이 같은 sha 면 건너뛴다. 깨진 화면이 최대 한 시간 운영에 나가 있을 수 있다는 대가를 받아들였다. 화면을 크게 바꾸는 PR 은 병합 전에 `gh workflow run e2e.yml --ref <브랜치>`(`workflow_dispatch`, 늘 돈다·이슈는 만들지 않는다)로 직접 돌려 본다.
+  - **e2e 는 PR 검사의 `e2e` 잡이다**(#1089, 매시 cron `e2e.yml` 은 지웠다). 시험은 `frontend/e2e/<앱>/`(공개)·`frontend/e2e/operator/<앱>/`·`frontend/e2e/classroom/` 에 두고 **폴더 이름이 앱 표시다** — `backend/app_deps.toml` 의 앱 이름이거나 `frontend`(백엔드 앱이 없는 화면·BFF 시험). `plan` 잡이 `scripts/ci/e2e_plan.py` 로 조각을 낸다: PR 은 바뀐 백엔드 앱(`app_deps.py affected`)의 폴더, 앞단이 바뀌면 그 앱 시험 전부, 시험 폴더만 바뀌면 그 폴더만, 공유 도우미·설정·워크플로·그 밖은 전부. 병합 대기열은 늘 전부. 시험 파일을 시험 수 40개 안팎의 조각에 나눠 담고 조각마다 실행기 하나가 스택을 따로 굽는다(`CODEMIT_E2E_PATHS`, `e2e.sh`). 병합 기준 `결과` 가 `e2e` 를 본다(조각이 있으면 success). 이미지 층 캐시는 guard·release 가 저장하고 e2e 조각은 복원만 한다.
   - **release 를 끈 뒤 켜면**(그동안 병합된 main 머리는 다음 push 까지 안 나간다) `gh workflow run release.yml --ref main` 으로 한 번 돌린다(`workflow_dispatch`, #1018). main 이 아닌 ref 는 `main_only` 잡이 실패시켜 뒤 잡(승격 포함)이 모두 멈춘다.
-  - **알림 시험**: `gh workflow run e2e.yml --ref main -f simulate=fail`(이슈를 연다) → `-f simulate=ok`(복구됨 댓글 후 닫는다). e2e 는 돌지 않고 제목에 「(알림 시험)」이 붙어 실제 이슈·gate·직전 초록 판정을 흐리지 않는다. 시험 이슈는 닫힌 채 기록으로 남는다(#1020).
   - **celery 잡**(#1020)은 `celery-worker` 와 그 의존(db·redis·minio·backend)만 띄운다 — Next 앱 셋·events·grader 는 굽지 않는다. beat 간격은 `compose.ci.yaml` 의 `CODEMIT_CI_BEAT_INTERVAL_SECONDS=10`(`config/celery.py` 가 주기 스캔에만 적용, 운영·dev 는 그대로 60초).
-  - **빨강 알림 = 라벨 `ci-red` 이슈**(`scripts/ci/ci-issue.sh`, release `notify`·e2e `notify` 잡, `issues: write` 하나): 종류(「release 검사 실패」·「e2e 실패」)마다 열린 이슈는 하나, 이미 있으면 댓글. 본문에 실패 sha·run 링크·실패한 잡·직전 초록…이번 sha compare 링크. 다시 초록이면 「복구됨 <sha>」 댓글 후 닫는다 — **열린 `ci-red` 이슈 = 지금 빨강**이다. 라벨이 없으면 workflow 가 만든다.
+  - **빨강 알림 = 라벨 `ci-red` 이슈**(`scripts/ci/ci-issue.sh`, release `notify` 잡, `issues: write` 하나): 종류(「release 검사 실패」)마다 열린 이슈는 하나, 이미 있으면 댓글. 본문에 실패 sha·run 링크·실패한 잡·직전 초록…이번 sha compare 링크. 다시 초록이면 「복구됨 <sha>」 댓글 후 닫는다 — **열린 `ci-red` 이슈 = 지금 빨강**이다. 라벨이 없으면 workflow 가 만든다.
   - **release 에서 guard 가 실패하면**: `check` 실패 → `promote` 가 돌지 않는다 → production 이 승격되지 않는다 → **배포가 없다**(이미지는 ghcr 에 오를 수 있다).
     PR 은 이미 병합됐으니 main 만 앞서 있다. 아는 쪽은 `ci-red` 이슈(제목 「release 검사 실패 — production 승격·배포 멈춤」)를 보는 조율자·대표다. 고쳐서 main 에 새 커밋(또는 revert PR)이 병합되면 다음 승격이 이어 간다.
 - **main 에서는 `release.yml` 이 같은 pr-check.yml 을 `workflow_call` 로 부른다**(`push: main` 트리거는 pr-check.yml 에서 뺐다 —
@@ -301,7 +300,6 @@ result.ts` 의 `normalizeDetail`)라 첫 스텝이 볼 수 없던 표면이다. 
 | --- | --- |
 | `release.yml` | `main_only` 가 건너뛰어 verify·check·image·promote·notify 가 모두 멈춘다 |
 | `image.yml` | `build` 가 건너뛴다(수동 실행도) — 운영 이미지 저장소에 올리지 않는다 |
-| `e2e.yml` | 스케줄로 돌지 않는다(수동 실행만), 실패 이슈를 열지 않는다 |
 | `pr-check.yml` | PR 과 병합 대기열(`merge_group`) 양쪽에서 돈다 |
 
 포크 main 은 ruleset `main-merge-queue` 의 병합 대기열(squash)과 필수 검사 「결과」로만 들어간다.
