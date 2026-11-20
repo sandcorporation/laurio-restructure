@@ -290,6 +290,7 @@ result.ts` 의 `normalizeDetail`)라 첫 스텝이 볼 수 없던 표면이다. 
 | `pr-check.yml` | PR 과 병합 대기열(`merge_group`) 양쪽에서 돈다 |
 
 포크 main 은 ruleset `main-merge-queue` 의 병합 대기열(squash)과 필수 검사 「결과」로만 들어간다.
+PR 이 초록이면 `gh pr merge --squash <번호>` 가 대기열에 넣는다 — 대기열이 머지 커밋으로 `pr-check.yml` 을 다시 돌려 「결과」가 초록이면 병합한다.
 `scripts/test_release_flow.py` 가 위 조건과 `merge_group` 트리거를 고정한다.
 
 본 저장소 main 은 매일(그리고 포크 티켓을 시작하기 전에) `bash scripts/fork/sync-upstream.sh` 로 당겨 맞춘다 —
