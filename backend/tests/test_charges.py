@@ -1,7 +1,7 @@
 """Charge(CONTEXT.md)의 확정 경로가 종류와 무관하게 같은 규율을 지키는지 — Prize 결제와
 심사 연장비를 같은 시나리오 표로 친다 (#127, #118).
 
-두 종류가 같은 `payments.charges.settle_charge` 를 타므로 시나리오는 한 번만 적고
+두 종류가 같은 `ledger.charges.settle_charge` 를 타므로 시나리오는 한 번만 적고
 종류만 parametrize 한다. 웹훅 선행·이중 웹훅은 Prize 결제에만 웹훅이 있어
 `test_payments.py` 에 남는다. HTTP 가 유일한 시임이다(CLAUDE.md).
 """

@@ -32,9 +32,10 @@ from django.db.models import QuerySet
 
 from ledger.services import LineInput, post_journal_entry
 
-from .adapters import PGTimeoutError
+from ledger.pg import PGTimeoutError
 
-logger = logging.getLogger(__name__)
+# 로거 이름은 옮기기 전 그대로 둔다 — 운영 로그 검색·경보가 `payments.charges` 로 잡는다(#1086).
+logger = logging.getLogger("payments.charges")
 
 T = TypeVar("T")
 

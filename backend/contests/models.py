@@ -24,7 +24,7 @@ from core.classification import Classification
 from core.clock import Clock
 from core.quality_review import GRADE_BONUS, GRADE_OPTIONAL, GRADE_REQUIRED, POINTS_MAX, POINTS_MIN, default_points
 
-from payments.charges import ChargeBase
+from ledger.charges import ChargeBase
 from submissions.models import Submission
 
 
@@ -893,13 +893,13 @@ class JudgingExtensionPayment(ChargeBase):
     """심사기간 유료 연장 결제 시도 하나 (#13, #126, ADR-0004/0007/0008).
 
     Charge(CONTEXT.md)의 한 종류다 — `payments.models.Payment`(Prize 예치+개최비)와
-    같은 뼈대(`payments.charges.ChargeBase`)를 상속하고, 이 종류에 고유한 둘만 준다:
+    같은 뼈대(`ledger.charges.ChargeBase`)를 상속하고, 이 종류에 고유한 둘만 준다:
     분개의 줄(`journal`)과 확정에 딸려오는 부모 전이(`on_paid` — 심사기간 연장). `Payment`
     를 그대로 재사용하지 않는 이유: `Payment.unique_active_payment_per_contest`는 Contest
     당 결제가 평생 한 번(최초 예치)이라는 전제로 걸려 있는데, 연장은 같은 Contest에 대해
     여러 번 반복될 수 있는 별개의 결제 종류다.
 
-    동시성·재전송에 안전한 이유는 `payments.charges.apply_vendor_outcome` 이 조건부
+    동시성·재전송에 안전한 이유는 `ledger.charges.apply_vendor_outcome` 이 조건부
     `UPDATE ... WHERE status='requested'` 규율(ADR-0003)로 딱 한 번만 이기기 때문이다.
     """
 
